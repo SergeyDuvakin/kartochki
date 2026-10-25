@@ -7,7 +7,13 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01"}
-body{padding:calc(var(--st) + var(--cst) + 12px) 20px calc(var(--sb) + 40px);min-height:100vh;overflow-x:hidden}
+html,body{overflow:hidden;overscroll-behavior:none;height:100%}
+body{position:fixed;inset:0}
+.scroller{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;
+  padding:calc(var(--st) + var(--cst) + 12px) 20px calc(var(--sb) + 40px)}
+.scroller::after{content:"";display:block;height:1px}
+body.is-open .scroller{overflow-y:hidden}
+body.is-open .card{touch-action:none}
 svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .hidden{display:none!important}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
@@ -150,3 +156,15 @@ body.searching .tools .two{opacity:.35;pointer-events:none}
 .card.dark .nm{text-shadow:none}
 .hint{text-align:center;font-size:13px;color:var(--fg2);margin:14px 0 0}
 .actions{margin:8px 0 0}
+.scroller::before{content:"";float:left;width:1px;margin-left:-1px;height:calc(100% + 1px)}
+
+/* centering */
+.top,.stack,.empty{width:min(100%,420px);margin-left:auto;margin-right:auto}
+.stack{margin-top:22px}
+.viewer{left:0;right:0;margin:0 auto;width:min(100% - 40px,420px)}
+/* skeleton only when nothing cached */
+.skeleton{display:none;position:relative;width:min(100%,420px);margin:22px auto 0;height:300px}
+body.loading .skeleton{display:block}
+.skeleton i{position:absolute;left:0;right:0;aspect-ratio:1.586;border-radius:18px;background:linear-gradient(100deg,#ece7eb 30%,#f6f2f5 50%,#ece7eb 70%) 0 0/300% 100%;animation:sk 1.4s linear infinite}
+.skeleton i:nth-child(2){top:60px}.skeleton i:nth-child(3){top:120px}
+@keyframes sk{to{background-position:-150% 0}}

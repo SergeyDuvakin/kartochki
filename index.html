@@ -6,12 +6,12 @@
 <meta name="theme-color" content="#fbf7f8">
 <title>Карточки</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@2.2.4/dist/iife/full/index.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bwip-js@4/dist/bwip-js-min.js"></script>
-<link rel="preconnect" href="https://rsms.me"><link rel="stylesheet" href="https://rsms.me/inter/inter.css">
-<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/bwip-js@4/dist/bwip-js-min.js" defer></script>
+
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
+<div id="scroller" class="scroller">
 <header class="top">
   <div class="titlebar">
     <h1>Карточки</h1>
@@ -30,6 +30,7 @@
 </header>
 
 <main id="stack" class="stack"></main>
+<div class="skeleton" aria-hidden="true"><i></i><i></i><i></i></div>
 <div id="empty" class="empty hidden">
   <div class="ghostcard"></div>
   <p><b>Пока нет карт</b><br>Нажмите «+», чтобы добавить первую</p>
@@ -47,6 +48,7 @@
   </div>
 </section>
 
+</div>
 <div id="addMenu" class="sheet-wrap hidden">
   <div class="backdrop"></div>
   <div class="sheet">
@@ -88,6 +90,7 @@
   </form>
 </div>
 <div id="toast" class="toast"></div>
-<script src="app.js"></script>
+<script src="seed.js?v=4"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>

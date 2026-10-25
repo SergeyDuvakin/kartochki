@@ -1,7 +1,7 @@
 'use strict';
 const tg = window.Telegram && Telegram.WebApp;
 const inTG = !!(tg && tg.initData);
-if (tg) { tg.ready(); tg.expand(); try{tg.setHeaderColor('#fff0f6');tg.setBackgroundColor('#fff0f6');}catch(e){} }
+if (tg) { tg.ready(); tg.expand(); try{ if(tg.isVersionAtLeast&&tg.isVersionAtLeast('7.7')&&tg.disableVerticalSwipes) tg.disableVerticalSwipes(); }catch(e){} try{tg.setHeaderColor('#fff0f6');tg.setBackgroundColor('#fff0f6');}catch(e){} }
 const $ = s => document.querySelector(s);
 const SHOPS = [
  ['АШАН','#9fd3c7'],['Пятёрочка','#f4a9a8'],['Магнит','#f2b5b8'],['Перекрёсток','#a9cfb0'],['Дикси','#f8c99b'],
@@ -33,11 +33,26 @@ async function photoGet(id){ const d=await db(); return new Promise(r=>{const q=
 
 let cards = [];
 const photoURLs = {};
-async function load(){ /* returns promise */
-  const keys = (await store.keys()).filter(k=>k.startsWith('c_'));
-  const vals = await store.getMany(keys);
-  cards = keys.map(k=>{try{return JSON.parse(vals[k])}catch(e){return null}}).filter(Boolean);
-  for (const c of cards){ const b=await photoGet(c.id); if(b) photoURLs[c.id]=URL.createObjectURL(b); }
+function readMirror(){ try{ return JSON.parse(localStorage.getItem('mirror')||'null'); }catch(e){ return null; } }
+function seedCards(){ return (window.SEED||[]).map((d,i)=>({id:'seed'+i,order:i,uses:0,name:d.name,number:d.number,format:d.format,color:d.color,display:d.display||''})); }
+function boot(){ // synchronous first paint: mirror -> seed -> skeleton
+  const m=readMirror();
+  if(m&&m.length){ cards=m; }
+  else if(!localStorage.getItem('seeded') && window.SEED){ cards=seedCards(); }
+  if(cards.length) render(); else if(CS) document.body.classList.add('loading'); else render();
+}
+async function reconcile(){ // background sync with CloudStorage, no flicker
+  const keys=await store.keys(); const ck=keys.filter(k=>k.startsWith('c_'));
+  const vals=await store.getMany([...ck,'seeded']);
+  let remote=ck.map(k=>{try{return JSON.parse(vals[k])}catch(e){return null}}).filter(Boolean);
+  if(!vals.seeded && window.SEED){ // first launch anywhere: push seed to cloud
+    const have=new Set(remote.map(c=>c.id));
+    for(const c of seedCards()) if(!have.has(c.id)){ const local=cards.find(x=>x.id===c.id)||c; await save(local); remote.push(local); }
+    await store.set('seeded','1');
+  }
+  localStorage.setItem('seeded','1');
+  document.body.classList.remove('loading');
+  if(JSON.stringify(remote.map(c=>[c.id,c.name,c.number,c.color,c.order,c.display]).sort())!==JSON.stringify(cards.map(c=>[c.id,c.name,c.number,c.color,c.order,c.display]).sort())||!cards.length){ cards=remote; }
   render();
 }
 const save = c => store.set('c_'+c.id, JSON.stringify(c));
@@ -59,7 +74,8 @@ function shade(hex,p){ let n=parseInt(hex.slice(1),16); const f=v=>Math.max(0,Ma
 function render(){
   const q = $('#search').value.trim().toLowerCase();
   list = sorted().filter(c=>!q||c.name.toLowerCase().includes(q));
-  const st=$('#stack'); $('#empty').classList.toggle('hidden', cards.length>0);
+  try{ localStorage.setItem('mirror',JSON.stringify(cards)); }catch(e){}
+  const st=$('#stack'); $('#empty').classList.toggle('hidden', cards.length>0 || document.body.classList.contains('loading'));
   const keep=new Set(list.map(c=>c.id));
   for(const [id,el] of els) if(!keep.has(id)){ el.remove(); els.delete(id); }
   list.forEach(c=>{ let el=els.get(c.id); if(!el){ el=document.createElement('div'); el.className='card'; bindCard(el,c); st.appendChild(el); els.set(c.id,el); el.style.transform='translate3d(0,40px,0)'; el.style.opacity=0; }
@@ -68,7 +84,7 @@ function render(){
 }
 function layout(){ const H=cardH(), st=$('#stack');
   if(cur){ // open: chosen card to top, others slide down to bottom
-    const iy = list.findIndex(c=>c.id===cur.id); const bottom = innerHeight - (parseFloat(getComputedStyle(document.body).paddingTop)+4) - 30;
+    const iy = list.findIndex(c=>c.id===cur.id); const bottom = innerHeight - (parseFloat(getComputedStyle($('#scroller')).paddingTop)+4) - 30;
     list.forEach((c,i)=>{ const el=els.get(c.id); el.style.zIndex = c.id===cur.id?100:i;
       el.style.opacity = 1;
       el.style.transform = c.id===cur.id ? 'translate3d(0,0,0)' : `translate3d(0,${bottom + (i<iy?i:i-1)*10}px,0) scale(.94)`; });
@@ -79,10 +95,12 @@ function layout(){ const H=cardH(), st=$('#stack');
 }
 addEventListener('resize',layout);
 function bindCard(el){ let t, sx, sy, drag=false, held=false, startIdx;
-  el.addEventListener('pointerdown',e=>{ if(cur) return; held=false; drag=false; sx=e.clientX; sy=e.clientY; el.setPointerCapture(e.pointerId);
+  el.addEventListener('touchmove',e=>{ if(held||cur) e.preventDefault(); },{passive:false});
+  el.addEventListener('pointerdown',e=>{ if(cur) return; held=false; drag=false; sx=e.clientX; sy=e.clientY; 
     t=setTimeout(()=>{ held=true; haptic('medium'); el.classList.add('lifted'); },420); });
   el.addEventListener('pointermove',e=>{ const dy=e.clientY-sy, dx=e.clientX-sx;
     if(!held){ if(Math.abs(dx)+Math.abs(dy)>8) clearTimeout(t); return; }
+    if(!el.hasPointerCapture(e.pointerId)) try{el.setPointerCapture(e.pointerId);}catch(_){}
     if(!drag && Math.abs(dy)>6){ drag=true; el.classList.add('dragging'); startIdx=list.indexOf(el._c); }
     if(drag){ el.style.transform=`translate3d(0,${startIdx*STRIP+dy}px,0) scale(1.03)`;
       const ni=Math.max(0,Math.min(list.length-1,Math.round((startIdx*STRIP+dy)/STRIP))), oi=list.indexOf(el._c);
@@ -120,8 +138,8 @@ function prettyNum(c){ let n=String(c.display||'').trim(); if(!n){ n=String(c.nu
   return /^\d{8,}$/.test(n) ? n.replace(/(\d{4})(?=\d)/g,'$1 ') : n; }
 let openedAt=0;
 function openCard(c){ cur=c; openedAt=Date.now(); haptic('light'); closeCtx(); 
-  const st=$('#stack'), topNow=st.getBoundingClientRect().top+scrollY, want=parseFloat(getComputedStyle(document.body).paddingTop)+4;
-  const lift=want-topNow; st.style.setProperty('--lift',lift+'px'); scrollTo(0,0);
+  const sc=$('#scroller'), st=$('#stack'), topNow=st.getBoundingClientRect().top+sc.scrollTop, want=parseFloat(getComputedStyle(sc).paddingTop)+4;
+  const lift=want-topNow; st.style.setProperty('--lift',lift+'px'); sc.scrollTop=0;
   document.body.classList.add('is-open'); layout();
   const el=els.get(c.id); el.classList.remove('shine'); void el.offsetWidth; el.classList.add('shine');
   drawCode($('#vCode'),c); const n=prettyNum(c); $('#vNum').textContent=n; $('#numRow').classList.toggle('hidden',!n);
@@ -134,6 +152,7 @@ document.addEventListener('click',e=>{ if(!cur||Date.now()-openedAt<400) return;
 if(tg&&tg.BackButton) tg.BackButton.onClick(()=>closeViewer());
 (()=>{ let y0=null, el=null; document.addEventListener('pointerdown',e=>{ if(!cur) return; const c=e.target.closest('.card'); if(c&&c._c.id===cur.id){ y0=e.clientY; el=c; } });
   document.addEventListener('pointermove',e=>{ if(y0==null) return; const dy=Math.max(0,e.clientY-y0); el.style.transition='none'; el.style.transform=`translate3d(0,${dy*.6}px,0)`; });
+  document.addEventListener('pointercancel',()=>{ if(y0==null) return; el.style.transition=''; y0=null; layout(); });
   document.addEventListener('pointerup',e=>{ if(y0==null) return; const dy=e.clientY-y0; el.style.transition=''; y0=null; if(dy>70){ openedAt=0; closeViewer(); } else layout(); }); })();
 
 $('#copyBtn').onclick=async()=>{ try{await navigator.clipboard.writeText(String(cur.display||cur.number).replace(/\s/g,''));toast('Номер скопирован');}catch(e){toast('Не удалось скопировать');} };
@@ -150,7 +169,9 @@ $('#addMenu').addEventListener('click',e=>{ const b=e.target.closest('[data-act]
   if(b.dataset.act==='cancel') return; if(b.dataset.act==='gallery') $('#fileIn').click(); if(b.dataset.act==='camera') startCam(); if(b.dataset.act==='manual') openEditor(null,{}); });
 $('#fileIn').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(f) await fromImage(f); };
 
+let zxP; function needZX(){ return window.ZXingWASM?Promise.resolve():(zxP ||= new Promise((r,j)=>{ const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/zxing-wasm@2.2.4/dist/iife/full/index.js'; s.onload=r; s.onerror=j; document.head.appendChild(s); })); }
 async function decode(src){ // src: Blob or ImageData
+  await needZX();
   const r = await ZXingWASM.readBarcodes(src,{tryHarder:true,maxNumberOfSymbols:1});
   const b = r.find(x=>x.isValid && x.text); return b ? {text:b.text, format:normFmt(b.format)} : null; }
 function normFmt(f){ return ({'QR Code':'QRCode','QRCode':'QRCode','EAN-13':'EAN-13','EAN13':'EAN-13'}[f]) || f; }
@@ -216,12 +237,7 @@ $('#form').onsubmit=async e=>{ e.preventDefault();
 function haptic(t){ try{ const h=tg&&tg.HapticFeedback; if(!h) return; t==='success'?h.notificationOccurred('success'):h.impactOccurred(t); }catch(e){} }
 let tt; function toast(t){ const e=$('#toast'); e.textContent=t; e.classList.add('on'); clearTimeout(tt); tt=setTimeout(()=>e.classList.remove('on'),1800); }
 window.__app={decode,cards:()=>cards};
-async function seed(){ // optional seed.js: runs once, only when empty & not seeded
-  const f=(await store.getMany(['seeded'])).seeded; if(f||cards.length) return;
-  await new Promise(r=>{const s=document.createElement('script');s.src='seed.js';s.onload=r;s.onerror=r;document.head.appendChild(s);});
-  if(!window.SEED) return;
-  for(const [i,d] of window.SEED.entries()){ const c={id:'seed'+i,order:i,uses:0,name:d.name,number:d.number,format:d.format,color:d.color,display:d.display||''};
-    await save(c); cards.push(c);
-    try{ const b=await compress(await (await fetch(d.photo)).blob()); await photoPut(c.id,b); photoURLs[c.id]=URL.createObjectURL(b);}catch(e){} }
-  await store.set('seeded','1'); render(); }
-load().then(seed);
+boot(); reconcile().catch(e=>{ console.warn(e); document.body.classList.remove('loading'); render(); });
+
+document.addEventListener('touchmove',e=>{ if(!window.__noDoc && !e.target.closest('#scroller,.sheet')) e.preventDefault(); },{passive:false});
+(()=>{ const sc=$('#scroller'); sc.addEventListener('touchstart',()=>{ if(!window.__noTop && sc.scrollTop<=0) sc.scrollTop=1; },{passive:true}); })();
