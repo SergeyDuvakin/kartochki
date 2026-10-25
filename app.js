@@ -1,5 +1,5 @@
 'use strict';
-const APP_V = 6;
+const APP_V = 7;
 fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{ if(j.v>APP_V){ const u=new URL(location.href); if(u.searchParams.get('v')!==String(j.v)){ u.searchParams.set('v',j.v); location.replace(u.toString()); } } }).catch(()=>{});
 const tg = window.Telegram && Telegram.WebApp;
 const inTG = !!(tg && tg.initData);
@@ -49,7 +49,8 @@ async function reconcile(){ // background sync with CloudStorage, no flicker
   let remote=ck.map(k=>{try{return JSON.parse(vals[k])}catch(e){return null}}).filter(Boolean);
   if(!vals.seeded && window.SEED){ // first launch anywhere: push seed to cloud
     const have=new Set(remote.map(c=>c.id));
-    for(const c of seedCards()) if(!have.has(c.id)){ const local=cards.find(x=>x.id===c.id)||c; await save(local); remote.push(local); }
+    const add=seedCards().filter(c=>!have.has(c.id)).map(c=>cards.find(x=>x.id===c.id)||c);
+    await Promise.all(add.map(save)); remote.push(...add);
     await store.set('seeded','1');
   }
   localStorage.setItem('seeded','1');
@@ -60,12 +61,13 @@ async function reconcile(){ // background sync with CloudStorage, no flicker
 const save = c => store.set('c_'+c.id, JSON.stringify(c));
 function sorted(){ // manual order once user reordered; otherwise most used first
   const man=localStorage.getItem('manualOrder');
-  return [...cards].sort((a,b)=> man ? (a.order||0)-(b.order||0) : ((b.uses||0)-(a.uses||0) || (a.order||0)-(b.order||0))); }
+  return [...cards].sort((a,b)=> (b.pin?1:0)-(a.pin?1:0) || (man ? (a.order||0)-(b.order||0) : ((b.uses||0)-(a.uses||0) || (a.order||0)-(b.order||0)))); }
 
 /* ---------- render (wallet stack) ---------- */
 const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const STRIP = 60;           // visible top strip of each stacked card
-let list = [], cur = null, els = new Map(), spread = 0;
+let list = [], cur = null, els = new Map(), spread = 0, activeEnd = null;
+for(const ev of ['pointerup','pointercancel']) document.addEventListener(ev,e=>{ if(activeEnd) setTimeout(()=>activeEnd&&activeEnd(e),0); },true);
 function cardW(){ return $('#stack').clientWidth; }
 function cardH(){ return Math.round(cardW()/1.586); }
 function hash(s){ let h=2166136261; for(const ch of String(s)) h=Math.imul(h^ch.charCodeAt(0),16777619); return h>>>0; }
@@ -111,19 +113,20 @@ function bindCard(el){ let t, sx, sy, drag=false, held=false, startIdx;
     if(drag){ el.style.transform=`translate3d(0,${startIdx*STRIP+dy}px,0) scale(1.03)`;
       const ni=Math.max(0,Math.min(list.length-1,Math.round((startIdx*STRIP+dy)/STRIP))), oi=list.indexOf(el._c);
       if(ni!==oi){ list.splice(oi,1); list.splice(ni,0,el._c); haptic('light'); layout(); } } });
-  const end=async e=>{ clearTimeout(t); el.classList.remove('lifted');
-    if(drag){ el.classList.remove('dragging'); localStorage.setItem('manualOrder','1');
-      list.forEach((c,i)=>{ if(c.order!==i){ c.order=i; save(c);} }); layout(); return; }
-    if(held){ ctxMenu(e,el._c); return; }
+  const end=async e=>{ clearTimeout(t); el.classList.remove('lifted'); activeEnd=null; const wasDrag=drag, wasHeld=held; drag=false; held=false;
+    if(wasDrag){ el.classList.remove('dragging'); localStorage.setItem('manualOrder','1');
+      list.forEach((c,i)=>{ if(c.order!==i){ c.order=i; save(c);} }); render(); return; }
+    if(wasHeld){ ctxMenu(e,el._c); return; }
     if(e.type==='pointerup' && !cur && Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)<8) openCard(el._c); };
   el.addEventListener('pointerup',end); el.addEventListener('pointercancel',end);
+  el.addEventListener('pointerdown',()=>{ activeEnd=(e)=>{ activeEnd=null; if(drag||held) end(e); }; });
   el.addEventListener('contextmenu',e=>e.preventDefault());
 }
 function ctxMenu(e,c){ closeCtx(); const m=document.createElement('div'); m.className='ctx';
-  m.innerHTML=`<button data-a="edit">Изменить</button><button data-a="del" class="danger">Удалить</button>`;
+  m.innerHTML=`<button data-a="pin">${c.pin?'Открепить':'Закрепить наверху'}</button><button data-a="edit">Изменить</button><button data-a="del" class="danger">Удалить</button>`;
   m.style.left=Math.min(e.clientX,innerWidth-200)+'px'; m.style.top=Math.min(e.clientY,innerHeight-120)+'px';
-  m.onclick=async ev=>{ const a=ev.target.dataset.a; closeCtx(); if(a==='edit') openEditor(c); if(a==='del') delCard(c); };
-  document.body.appendChild(m); setTimeout(()=>document.addEventListener('pointerdown',closeCtx,{once:true}),0); }
+  m.onclick=async ev=>{ const a=ev.target.dataset.a; closeCtx(); if(a==='pin'){ c.pin=!c.pin; await save(c); render(); toast(c.pin?'Закреплено':'Откреплено'); } if(a==='edit') openEditor(c); if(a==='del') delCard(c); };
+  document.body.appendChild(m); const off=ev=>{ if(m.contains(ev.target)) return; document.removeEventListener('pointerdown',off,true); closeCtx(); }; setTimeout(()=>document.addEventListener('pointerdown',off,true),0); }
 function closeCtx(){ document.querySelectorAll('.ctx').forEach(x=>x.remove()); }
 $('#search').addEventListener('input',render);
 $('#searchBtn').onclick=()=>{ document.body.classList.add('searching'); setTimeout(()=>$('#search').focus(),120); };
@@ -132,7 +135,7 @@ $('#moreBtn').onclick=e=>{ closeCtx(); const m=document.createElement('div'); m.
   m.innerHTML=`<button data-a="add">Добавить карту</button><button data-a="auto">Сортировать по частоте</button>`;
   const r=e.currentTarget.getBoundingClientRect(); m.style.right=(innerWidth-r.right)+'px'; m.style.top=(r.bottom+8)+'px'; m.style.transformOrigin='top right';
   m.onclick=ev=>{ const a=ev.target.dataset.a; closeCtx(); if(a==='add') $('#addBtn').click(); if(a==='auto'){ localStorage.removeItem('manualOrder'); render(); toast('Частые карты — наверху'); } };
-  document.body.appendChild(m); setTimeout(()=>document.addEventListener('pointerdown',ev=>{ if(!m.contains(ev.target)) closeCtx(); },{once:true}),0); };
+  document.body.appendChild(m); const off=ev=>{ if(m.contains(ev.target)) return; document.removeEventListener('pointerdown',off,true); closeCtx(); }; setTimeout(()=>document.addEventListener('pointerdown',off,true),0); };
 
 /* ---------- open card ---------- */
 function drawCode(canvas,c){ const bcid=(FORMATS.find(f=>f[0]===c.format)||[0,'code128'])[1];
