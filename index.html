@@ -11,7 +11,7 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bwip-js@4/dist/bwip-js-min.js" defer></script>
 
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 <div id="fx" aria-hidden="true"></div>
@@ -93,8 +93,19 @@
     <p id="edMsg" class="msg"></p>
   </form>
 </div>
+<div id="confirm" class="confirm hidden" role="dialog" aria-modal="true">
+  <div class="backdrop"></div>
+  <div class="csheet">
+    <div class="cgroup">
+      <p class="ctitle">Сохранить изменения?<small>Вы изменили карту. Сохранить перед закрытием?</small></p>
+      <button data-ans="save" class="cbtn strong">Сохранить</button>
+      <button data-ans="discard" class="cbtn danger">Не сохранять</button>
+    </div>
+    <button data-ans="keep" class="cbtn cancelbtn">Продолжить редактирование</button>
+  </div>
+</div>
 <div id="toast" class="toast"></div>
-<script src="seed.js?v=8"></script>
-<script src="app.js?v=8"></script>
+<script src="seed.js?v=9"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>

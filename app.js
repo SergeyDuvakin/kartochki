@@ -1,5 +1,5 @@
 'use strict';
-const APP_V = 8;
+const APP_V = 9;
 fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{ if(j.v>APP_V){ const u=new URL(location.href); if(u.searchParams.get('v')!==String(j.v)){ u.searchParams.set('v',j.v); location.replace(u.toString()); } } }).catch(()=>{});
 const tg = window.Telegram && Telegram.WebApp;
 const inTG = !!(tg && tg.initData);
@@ -154,11 +154,11 @@ function openCard(c){ cur=c; openedAt=Date.now(); haptic('light'); closeCtx();
   drawCode($('#vCode'),c); const n=prettyNum(c); $('#vNum').textContent=n; $('#numRow').classList.toggle('hidden',!n);
   const v=$('#viewer'); v.style.top = (want + cardH() + 18)+'px'; v.classList.remove('hidden');
   c.uses=(c.uses||0)+1; c.last=Date.now(); save(c); setBright(true); try{tg&&tg.BackButton.show();}catch(e){} }
-function closeViewer(){ if(!cur) return; cur=null; document.body.classList.remove('is-open'); $('#viewer').classList.add('hidden'); setBright(false); try{tg&&tg.BackButton.hide();}catch(e){} layout(); }
+function closeViewer(){ if(!cur) return; cur=null; document.body.classList.remove('is-open'); $('#viewer').classList.add('hidden'); setBright(false); syncBack(); layout(); }
 function setBright(on){ try{ if(tg && tg.isVersionAtLeast('8.0') && tg.setBrightness) tg.setBrightness(on?1:-1); }catch(e){} }
 document.addEventListener('click',e=>{ if(!cur||Date.now()-openedAt<400) return; if(e.target.closest('#viewer,.sheet-wrap,.ctx')) return;
   if(e.target.closest('.card')||e.target===document.body||e.target.closest('.stack')||e.target===document.documentElement) closeViewer(); });
-if(tg&&tg.BackButton) tg.BackButton.onClick(()=>closeViewer());
+if(tg&&tg.BackButton) tg.BackButton.onClick(()=>{ if(isShown('#confirm')) return answerConfirm('keep'); if(isShown('#editor')) return requestCloseEditor(); if(isShown('#addMenu')) return closeSheet('#addMenu'); closeViewer(); });
 (()=>{ let y0=null, el=null; const V=()=>$('#viewer');
   const move=dy=>{ const t=`translate3d(0,${dy}px,0)`; el.style.transition='none'; el.style.transform=t; V().style.transition='none'; V().style.transform=t; };
   const reset=()=>{ el.style.transition=''; V().style.transition='transform .5s var(--spring)'; V().style.transform=''; };
@@ -177,8 +177,8 @@ async function delCard(c){ const ok = await confirmBox(`Удалить «${c.nam
 function confirmBox(t){ return new Promise(r=>{ if(inTG && tg.showConfirm) tg.showConfirm(t,r); else r(confirm(t)); }); }
 
 /* ---------- add ---------- */
-$('#addBtn').onclick=()=>{ $('#addMenu').classList.remove('hidden'); haptic('light'); };
-$('#addMenu .backdrop').onclick=()=>$('#addMenu').classList.add('hidden');
+$('#addBtn').onclick=()=>{ openSheet('#addMenu'); haptic('light'); };
+$('#addMenu .backdrop').onclick=()=>closeSheet('#addMenu');
 $('#addMenu').addEventListener('click',e=>{ const b=e.target.closest('[data-act]'); if(!b||b.dataset.act==='gallery') return; if(b.dataset.act!=='cancel') $('#addMenu').classList.add('hidden');
   if(b.dataset.act==='cancel'){ $('#addMenu').classList.add('hidden'); return; } if(b.dataset.act==='gallery') return; if(b.dataset.act==='camera') startCam(); if(b.dataset.act==='manual') openEditor(null,{}); });
 $('#fileIn').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; $('#addMenu').classList.add('hidden'); await fromImage(f); };
@@ -228,15 +228,15 @@ $('#fFmt').innerHTML=FORMATS.map(f=>`<option value="${f[0]}">${FMT_LABEL[f[0]]||
 function openEditor(card,d={}){ edit=card; draft={...d, color:card?.color||d.color||shopColor(d.name)||PALETTE[0]};
   $('#edTitle').textContent=card?'Изменить карту':'Новая карта';
   $('#fName').value=card?.name??d.name??''; $('#fNum').value=card?.number??d.number??''; $('#fDisp').value=card?.display??d.display??''; $('#fFmt').value=card?.format??d.format??'EAN-13';
-  $('#edMsg').textContent=d.msg||''; drawColors(); preview(); $('#editor').classList.remove('hidden'); }
+  $('#edMsg').textContent=d.msg||''; drawColors(); preview(); openSheet('#editor'); snap0=snapForm(); }
 function drawColors(){ const cols=[...new Set([...PALETTE,draft.color].filter(Boolean))];
   $('#colors').innerHTML=cols.map(c=>`<button type="button" style="background:${c}" data-c="${c}" class="${c===draft.color?'on':''} ${isLight(c)?'lt':''}" aria-label="Цвет ${c}"></button>`).join(''); }
 $('#colors').onclick=e=>{ const c=e.target.dataset.c; if(c){draft.color=c;drawColors();preview();} };
 $('#fName').oninput=()=>{ const sc=shopColor($('#fName').value); if(sc){draft.color=sc;drawColors();} preview(); };
 $('#fNum').oninput=()=>{ if($('#fNum').value.replace(/\D/g,'').length===13 && !edit && $('#fFmt').value==='Code128') $('#fFmt').value='EAN-13'; };
 function preview(){ const p=$('#edPreview'); p.style.background=grad(draft.color); p.classList.toggle('dark',isLight(draft.color)); p.innerHTML=`<div class="nm">${esc($('#fName').value||'Название')}</div>`; }
-$('#edCancel').onclick=()=>$('#editor').classList.add('hidden');
-$('#editor .backdrop').onclick=()=>$('#editor').classList.add('hidden');
+$('#edCancel').onclick=()=>requestCloseEditor();
+$('#editor .backdrop').onclick=()=>requestCloseEditor();
 $('#form').onsubmit=async e=>{ e.preventDefault();
   let fmt=$('#fFmt').value, num=$('#fNum').value.trim();
   if(fmt==='EAN-13' && !/^\d{12,13}$/.test(num.replace(/\s/g,''))) fmt='Code128'; else if(fmt==='EAN-13') num=num.replace(/\s/g,'');
@@ -245,7 +245,7 @@ $('#form').onsubmit=async e=>{ e.preventDefault();
   try{ await save(c); }catch(err){ $('#edMsg').textContent=err.message; return; }
   if(draft.photo){ await photoPut(c.id,draft.photo); photoURLs[c.id]=URL.createObjectURL(draft.photo); }
   if(!edit) cards.push(c);
-  $('#editor').classList.add('hidden'); render(); haptic('success'); };
+  closeSheet('#editor'); render(); haptic('success'); };
 
 /* misc */
 function haptic(t){ try{ const h=tg&&tg.HapticFeedback; if(!h) return; t==='success'?h.notificationOccurred('success'):h.impactOccurred(t); }catch(e){} }
@@ -301,3 +301,45 @@ document.querySelectorAll('.sheet').forEach(sh=>{ const f=document.createElement
   const end=()=>{ if(mode==='pull'){ st.classList.remove('pulling'); spread=0; layout(); } y0=null; mode=null; };
   sc.addEventListener('touchend',end); sc.addEventListener('touchcancel',end);
 })();
+
+/* ---------- sheets: open/close, swipe-to-dismiss, dirty prompt ---------- */
+const isShown=sel=>!$(sel).classList.contains('hidden');
+function syncBack(){ try{ if(!tg||!tg.BackButton) return; (cur||isShown('#editor')||isShown('#addMenu')||isShown('#confirm'))?tg.BackButton.show():tg.BackButton.hide(); }catch(e){} }
+function openSheet(sel){ const w=$(sel), sh=w.querySelector('.sheet'), bd=w.querySelector('.backdrop');
+  sh.style.transition='none'; sh.style.transform=''; bd.style.transition='none'; bd.style.opacity=''; w.classList.remove('hidden');
+  sh.style.animation='none'; void sh.offsetWidth; sh.style.animation=''; if(sh.scrollTop) sh.scrollTop=0; syncBack(); }
+function closeSheet(sel,instant){ const w=$(sel); if(w.classList.contains('hidden')) return Promise.resolve();
+  const sh=w.querySelector('.sheet'), bd=w.querySelector('.backdrop'); if(document.activeElement && w.contains(document.activeElement)) document.activeElement.blur();
+  if(instant||RM){ w.classList.add('hidden'); syncBack(); return Promise.resolve(); }
+  return new Promise(r=>{ sh.style.transition='transform .32s cubic-bezier(.3,.6,.4,1)'; bd.style.transition='opacity .32s'; sh.style.transform='translate3d(0,100%,0)'; bd.style.opacity='0';
+    setTimeout(()=>{ w.classList.add('hidden'); sh.style.transition=''; sh.style.transform=''; bd.style.transition=''; bd.style.opacity=''; syncBack(); r(); },330); }); }
+function springBack(sel){ const w=$(sel), sh=w.querySelector('.sheet'), bd=w.querySelector('.backdrop');
+  sh.style.transition='transform .5s var(--spring)'; bd.style.transition='opacity .35s'; sh.style.transform=''; bd.style.opacity=''; }
+let snap0='';
+function snapForm(){ return JSON.stringify([$('#fName').value.trim(),$('#fNum').value.trim(),$('#fDisp').value.trim(),$('#fFmt').value,(draft.color||'').toLowerCase()]); }
+const isDirty=()=>isShown('#editor') && snapForm()!==snap0;
+let confirmRes=null;
+function askSave(){ const c=$('#confirm'); c.classList.remove('hidden'); syncBack(); haptic('light'); return new Promise(r=>confirmRes=r); }
+function answerConfirm(v){ $('#confirm').classList.add('hidden'); syncBack(); const r=confirmRes; confirmRes=null; r&&r(v); }
+$('#confirm').addEventListener('click',e=>{ const b=e.target.closest('[data-ans]'); if(b) answerConfirm(b.dataset.ans); else if(e.target.classList.contains('backdrop')) answerConfirm('keep'); });
+async function requestCloseEditor(){ if(document.activeElement) document.activeElement.blur();
+  if(!isDirty()){ return closeSheet('#editor'); }
+  springBack('#editor'); const a=await askSave();
+  if(a==='save'){ $('#form').requestSubmit(); }
+  else if(a==='discard'){ closeSheet('#editor'); } }
+function sheetSwipe(sel,onDismiss){ const w=$(sel), sh=w.querySelector('.sheet'), bd=w.querySelector('.backdrop');
+  let y0=null, t0=0, dy=0, active=false, lastY=0, lastT=0, vel=0;
+  sh.addEventListener('touchstart',e=>{ if(e.touches.length>1) return; const tgt=e.target;
+    const sel=getSelection&&String(getSelection()); if(sel) return;
+    if(tgt.matches('input,select,textarea') && tgt===document.activeElement) return;
+    if(sh.scrollTop>0) return; y0=lastY=e.touches[0].clientY; t0=lastT=performance.now(); dy=0; active=false; vel=0; },{passive:true});
+  sh.addEventListener('touchmove',e=>{ if(y0==null) return; const y=e.touches[0].clientY; dy=y-y0;
+    if(!active){ if(dy>6 && sh.scrollTop<=0){ active=true; if(document.activeElement&&sh.contains(document.activeElement)) document.activeElement.blur(); sh.style.transition='none'; bd.style.transition='none'; } else if(dy<-4){ y0=null; return; } else return; }
+    e.preventDefault(); const now=performance.now(); vel=(y-lastY)/Math.max(1,now-lastT); lastY=y; lastT=now;
+    const d=dy>0?dy:-Math.sqrt(-dy)*3; sh.style.transform=`translate3d(0,${d}px,0)`; bd.style.opacity=String(Math.max(0,1-d/sh.offsetHeight)); },{passive:false});
+  const end=()=>{ if(y0==null) return; y0=null; if(!active) return; active=false;
+    if(dy>sh.offsetHeight*.3 || (vel>0.6 && dy>30)) onDismiss(); else springBack(sel); };
+  sh.addEventListener('touchend',end); sh.addEventListener('touchcancel',()=>{ if(active){ active=false; y0=null; springBack(sel);} });
+}
+sheetSwipe('#addMenu',()=>closeSheet('#addMenu'));
+sheetSwipe('#editor',()=>requestCloseEditor());

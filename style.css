@@ -196,3 +196,18 @@ body.loading .skeleton{display:block}
 
 .fx-local{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0;border-radius:inherit}
 .sheet>*:not(.fx-local){position:relative;z-index:1}
+
+/* save-changes action sheet */
+.confirm{position:fixed;inset:0;z-index:90;display:flex;align-items:flex-end;justify-content:center}
+.confirm .backdrop{background:rgba(40,20,35,.18)}
+.csheet{position:relative;width:100%;max-width:520px;padding:0 10px calc(var(--sb) + 10px);animation:up .45s var(--spring)}
+.cgroup{background:rgba(255,250,252,.86);backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);border-radius:16px;overflow:hidden;
+  box-shadow:0 10px 40px -10px rgba(120,40,80,.25),inset 0 0 0 .5px rgba(255,255,255,.7)}
+.ctitle{margin:0;padding:16px 20px 14px;text-align:center;font-size:14px;font-weight:600;color:#6e6a70}
+.ctitle small{display:block;font-weight:400;font-size:13px;margin-top:3px;color:#8a8a8e}
+.cbtn{display:block;width:100%;height:56px;font-size:19px;color:var(--accent);border-top:.5px solid rgba(60,60,67,.14);background:none;transition:background .15s}
+.cbtn:active{background:rgba(232,106,154,.08)}
+.cbtn.strong{font-weight:600}
+.cbtn.danger{color:#ff3b30}
+.cancelbtn{margin-top:8px;border-radius:16px;border:0;font-weight:600;background:rgba(255,255,255,.95);box-shadow:0 10px 40px -10px rgba(120,40,80,.2)}
+.sheet{will-change:transform;overscroll-behavior:contain}
