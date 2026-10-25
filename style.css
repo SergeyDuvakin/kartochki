@@ -187,3 +187,12 @@ body.loading .skeleton{display:block}
 @media (prefers-reduced-motion:reduce){.tw,.bs{animation:none;display:none}.bubble{opacity:.35}}
 
 .stack.pulling .card{transition:none}
+
+.opt{position:relative}
+.overlay-input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0;z-index:2}
+/* iOS WebKit: no aspect-ratio on absolutely positioned cards; explicit width + JS height */
+.stack .card{width:100%;left:0;right:auto;aspect-ratio:auto;height:var(--ch,220px)}
+.skeleton i{width:100%;aspect-ratio:auto;height:var(--ch,220px)}
+
+.fx-local{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0;border-radius:inherit}
+.sheet>*:not(.fx-local){position:relative;z-index:1}

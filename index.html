@@ -11,7 +11,7 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bwip-js@4/dist/bwip-js-min.js" defer></script>
 
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 <div id="fx" aria-hidden="true"></div>
@@ -61,11 +61,10 @@
     <h2>Добавить карту</h2>
     <div class="group">
       <button class="opt" data-act="camera"><i><svg viewBox="0 0 24 24"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z"/><circle cx="12" cy="12.5" r="3.5"/></svg></i><span><b>Камера</b><small>Наведите на штрихкод</small></span><em>›</em></button>
-      <button class="opt" data-act="gallery"><i><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5"/></svg></i><span><b>Из галереи</b><small>Скриншот или фото карты</small></span><em>›</em></button>
+      <label class="opt" data-act="gallery"><i><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5"/></svg></i><span><b>Из галереи</b><small>Скриншот или фото карты</small></span><em>›</em><input id="fileIn" class="overlay-input" type="file" accept="image/*"></label>
       <button class="opt" data-act="manual"><i><svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="3"/><path d="M6 10h.01M9.5 10h.01M13 10h.01M16.5 10h.01M7.5 14h9"/></svg></i><span><b>Ввести номер</b><small>Вручную</small></span><em>›</em></button>
     </div>
     <button class="text wide cancel" data-act="cancel">Отмена</button>
-    <input id="fileIn" type="file" accept="image/*" hidden>
   </div>
 </div>
 
@@ -95,7 +94,7 @@
   </form>
 </div>
 <div id="toast" class="toast"></div>
-<script src="seed.js?v=7"></script>
-<script src="app.js?v=7"></script>
+<script src="seed.js?v=8"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>
