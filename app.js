@@ -66,7 +66,11 @@ const STRIP = 60;           // visible top strip of each stacked card
 let list = [], cur = null, els = new Map();
 function cardW(){ return $('#stack').clientWidth; }
 function cardH(){ return Math.round(cardW()/1.586); }
-function cardHTML(c){ return `<div class="sheen"></div><div class="nm">${esc(c.name)}</div>${tailOf(c)}<div class="fmt">${FMT_LABEL[c.format]||c.format}</div>`; }
+function hash(s){ let h=2166136261; for(const ch of String(s)) h=Math.imul(h^ch.charCodeAt(0),16777619); return h>>>0; }
+function twinkles(id){ let h=hash(id), o=''; for(let i=0;i<3;i++){ h=Math.imul(h^(h>>>15),2246822507)>>>0;
+  const x=8+h%84, y=12+(h>>>8)%70, s=5+(h>>>16)%5, d=4+(h>>>20)%4, dl=(h>>>24)%50/10;
+  o+=`<i class="tw" style="left:${x}%;top:${y}%;--s:${s}px;--d:${d}s;--dl:${dl}s"></i>`; } return o; }
+function cardHTML(c){ return `<div class="sheen"></div>${twinkles(c.id)}<div class="nm">${esc(c.name)}</div>${tailOf(c)}<div class="fmt">${FMT_LABEL[c.format]||c.format}</div>`; }
 function tailOf(c){ const d=String(c.display||c.number).replace(/\s/g,''); return /^[A-Za-z]?\d{6,}$/.test(d)?`<div class="tail">•••• ${d.slice(-4)}</div>`:''; }
 function isLight(h){ const n=parseInt(h.slice(1),16); return (0.299*(n>>16)+0.587*(n>>8&255)+0.114*(n&255))>150; }
 function grad(c){ return `linear-gradient(165deg, ${shade(c,14)} 0%, ${c} 50%, ${shade(c,-12)} 100%)`; }
@@ -93,7 +97,7 @@ function layout(){ const H=cardH(), st=$('#stack');
     el.style.transform=`translate3d(0,${i*STRIP}px,0)`; });
   st.style.height = list.length ? ((list.length-1)*STRIP+H)+'px' : '0';
 }
-addEventListener('resize',layout);
+addEventListener('resize',layout); if(tg&&tg.onEvent) tg.onEvent('viewportChanged',()=>layout());
 function bindCard(el){ let t, sx, sy, drag=false, held=false, startIdx;
   el.addEventListener('touchmove',e=>{ if(held||cur) e.preventDefault(); },{passive:false});
   el.addEventListener('pointerdown',e=>{ if(cur) return; held=false; drag=false; sx=e.clientX; sy=e.clientY; 
@@ -141,7 +145,7 @@ function openCard(c){ cur=c; openedAt=Date.now(); haptic('light'); closeCtx();
   const sc=$('#scroller'), st=$('#stack'), topNow=st.getBoundingClientRect().top+sc.scrollTop, want=parseFloat(getComputedStyle(sc).paddingTop)+4;
   const lift=want-topNow; st.style.setProperty('--lift',lift+'px'); sc.scrollTop=0;
   document.body.classList.add('is-open'); layout();
-  const el=els.get(c.id); el.classList.remove('shine'); void el.offsetWidth; el.classList.add('shine');
+  const el=els.get(c.id); el.classList.remove('shine'); void el.offsetWidth; el.classList.add('shine'); setTimeout(()=>burst(el),380);
   drawCode($('#vCode'),c); const n=prettyNum(c); $('#vNum').textContent=n; $('#numRow').classList.toggle('hidden',!n);
   const v=$('#viewer'); v.style.top = (want + cardH() + 18)+'px'; v.classList.remove('hidden');
   c.uses=(c.uses||0)+1; c.last=Date.now(); save(c); setBright(true); try{tg&&tg.BackButton.show();}catch(e){} }
@@ -150,10 +154,15 @@ function setBright(on){ try{ if(tg && tg.isVersionAtLeast('8.0') && tg.setBright
 document.addEventListener('click',e=>{ if(!cur||Date.now()-openedAt<400) return; if(e.target.closest('#viewer,.sheet-wrap,.ctx')) return;
   if(e.target.closest('.card')||e.target===document.body||e.target.closest('.stack')||e.target===document.documentElement) closeViewer(); });
 if(tg&&tg.BackButton) tg.BackButton.onClick(()=>closeViewer());
-(()=>{ let y0=null, el=null; document.addEventListener('pointerdown',e=>{ if(!cur) return; const c=e.target.closest('.card'); if(c&&c._c.id===cur.id){ y0=e.clientY; el=c; } });
-  document.addEventListener('pointermove',e=>{ if(y0==null) return; const dy=Math.max(0,e.clientY-y0); el.style.transition='none'; el.style.transform=`translate3d(0,${dy*.6}px,0)`; });
-  document.addEventListener('pointercancel',()=>{ if(y0==null) return; el.style.transition=''; y0=null; layout(); });
-  document.addEventListener('pointerup',e=>{ if(y0==null) return; const dy=e.clientY-y0; el.style.transition=''; y0=null; if(dy>70){ openedAt=0; closeViewer(); } else layout(); }); })();
+(()=>{ let y0=null, el=null; const V=()=>$('#viewer');
+  const move=dy=>{ const t=`translate3d(0,${dy}px,0)`; el.style.transition='none'; el.style.transform=t; V().style.transition='none'; V().style.transform=t; };
+  const reset=()=>{ el.style.transition=''; V().style.transition='transform .5s var(--spring)'; V().style.transform=''; };
+  document.addEventListener('pointerdown',e=>{ if(!cur||e.target.closest('button')) return; const c=e.target.closest('.card');
+    if((c&&c._c.id===cur.id)||e.target.closest('#viewer')){ y0=e.clientY; el=els.get(cur.id); } });
+  document.addEventListener('touchmove',e=>{ if(y0!=null) e.preventDefault(); },{passive:false});
+  document.addEventListener('pointermove',e=>{ if(y0==null) return; move(Math.max(0,e.clientY-y0)*.6); });
+  document.addEventListener('pointercancel',()=>{ if(y0==null) return; y0=null; reset(); layout(); });
+  document.addEventListener('pointerup',e=>{ if(y0==null) return; const dy=e.clientY-y0; y0=null; reset(); if(dy>70){ openedAt=0; closeViewer(); } else layout(); }); })();
 
 $('#copyBtn').onclick=async()=>{ try{await navigator.clipboard.writeText(String(cur.display||cur.number).replace(/\s/g,''));toast('Номер скопирован');}catch(e){toast('Не удалось скопировать');} };
 $('#editBtn').onclick=()=>{ const c=cur; closeViewer(); openEditor(c); };
@@ -241,3 +250,31 @@ boot(); reconcile().catch(e=>{ console.warn(e); document.body.classList.remove('
 
 document.addEventListener('touchmove',e=>{ if(!window.__noDoc && !e.target.closest('#scroller,.sheet')) e.preventDefault(); },{passive:false});
 (()=>{ const sc=$('#scroller'); sc.addEventListener('touchstart',()=>{ if(!window.__noTop && sc.scrollTop<=0) sc.scrollTop=1; },{passive:true}); })();
+
+/* ---- candy fx ---- */
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function burst(el){ if(RM) return; const r=el.getBoundingClientRect(), B=$('#burst');
+  for(let i=0;i<9;i++){ const a=Math.random()*Math.PI*2, d=40+Math.random()*70, e=document.createElement('i'); e.className='bs';
+    e.style.left=(r.left+r.width*(.2+Math.random()*.6))+'px'; e.style.top=(r.top+r.height*(.2+Math.random()*.6))+'px';
+    e.style.setProperty('--dx',Math.cos(a)*d+'px'); e.style.setProperty('--dy',Math.sin(a)*d+'px'); e.style.setProperty('--sc',(.5+Math.random()*.8).toFixed(2));
+    e.style.animationDelay=(Math.random()*.15)+'s'; B.appendChild(e); setTimeout(()=>e.remove(),1200); } }
+(function bubbles(){
+  const FX=$('#fx'), N=6, bs=[];
+  const svg=i=>`<svg viewBox="0 0 100 100"><defs>
+   <linearGradient id="r${i}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb3d6"/><stop offset=".45" stop-color="#cdb8ff"/><stop offset=".8" stop-color="#a8ecd9"/><stop offset="1" stop-color="#ffd9ef"/></linearGradient>
+   <radialGradient id="f${i}" cx=".5" cy=".5" r=".5"><stop offset=".62" stop-color="#fff" stop-opacity="0"/><stop offset=".9" stop-color="#f3dcff" stop-opacity=".45"/><stop offset="1" stop-color="#fff" stop-opacity=".6"/></radialGradient></defs>
+   <circle cx="50" cy="50" r="48" fill="url(#f${i})"/><circle cx="50" cy="50" r="47.5" fill="none" stroke="url(#r${i})" stroke-width="2.4"/>
+   <ellipse cx="33" cy="28" rx="13" ry="6.5" fill="#fff" opacity=".85" transform="rotate(-35 33 28)"/><circle cx="70" cy="74" r="3.2" fill="#fff" opacity=".5"/></svg>`;
+  const W=()=>innerWidth, H=()=>innerHeight;
+  for(let i=0;i<N;i++){ const e=document.createElement('div'); e.className='bubble'; const s=14+Math.round(Math.random()*34);
+    e.style.width=e.style.height=s+'px'; e.innerHTML=svg(i); FX.appendChild(e);
+    bs.push({e,s,x:Math.random()*W(),y:Math.random()*H(),v:8+Math.random()*10,ph:Math.random()*6.28,amp:6+Math.random()*12}); }
+  let last=performance.now(), run=!RM && !document.hidden;
+  function place(b,t){ b.e.style.transform=`translate3d(${b.x+Math.sin(t/2200+b.ph)*b.amp}px,${b.y}px,0) scale(${1+Math.sin(t/900+b.ph)*.03},${1-Math.sin(t/900+b.ph)*.03})`; }
+  function tick(t){ const dt=Math.min(.05,(t-last)/1000); last=t;
+    for(const b of bs){ b.y-=b.v*dt; if(b.y<-b.s){ b.y=H()+b.s; b.x=Math.random()*(W()-b.s); } place(b,t); }
+    if(run) requestAnimationFrame(tick); }
+  bs.forEach(b=>place(b,0));
+  if(run) requestAnimationFrame(tick);
+  document.addEventListener('visibilitychange',()=>{ const was=run; run=!RM&&!document.hidden; if(run&&!was){ last=performance.now(); requestAnimationFrame(tick);} });
+})();
