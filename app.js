@@ -1,4 +1,6 @@
 'use strict';
+const APP_V = 6;
+fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{ if(j.v>APP_V){ const u=new URL(location.href); if(u.searchParams.get('v')!==String(j.v)){ u.searchParams.set('v',j.v); location.replace(u.toString()); } } }).catch(()=>{});
 const tg = window.Telegram && Telegram.WebApp;
 const inTG = !!(tg && tg.initData);
 if (tg) { tg.ready(); tg.expand(); try{ if(tg.isVersionAtLeast&&tg.isVersionAtLeast('7.7')&&tg.disableVerticalSwipes) tg.disableVerticalSwipes(); }catch(e){} try{tg.setHeaderColor('#fff0f6');tg.setBackgroundColor('#fff0f6');}catch(e){} }
@@ -63,7 +65,7 @@ function sorted(){ // manual order once user reordered; otherwise most used firs
 /* ---------- render (wallet stack) ---------- */
 const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const STRIP = 60;           // visible top strip of each stacked card
-let list = [], cur = null, els = new Map();
+let list = [], cur = null, els = new Map(), spread = 0;
 function cardW(){ return $('#stack').clientWidth; }
 function cardH(){ return Math.round(cardW()/1.586); }
 function hash(s){ let h=2166136261; for(const ch of String(s)) h=Math.imul(h^ch.charCodeAt(0),16777619); return h>>>0; }
@@ -94,7 +96,7 @@ function layout(){ const H=cardH(), st=$('#stack');
       el.style.transform = c.id===cur.id ? 'translate3d(0,0,0)' : `translate3d(0,${bottom + (i<iy?i:i-1)*10}px,0) scale(.94)`; });
     st.style.height=H+'px'; return; }
   list.forEach((c,i)=>{ const el=els.get(c.id); el.style.zIndex=i; el.style.opacity=1; if(el.classList.contains('dragging')) return;
-    el.style.transform=`translate3d(0,${i*STRIP}px,0)`; });
+    el.style.transform=`translate3d(0,${i*STRIP + i*spread*0.45 + (spread>0?spread*0.25:0)}px,0)`; });
   st.style.height = list.length ? ((list.length-1)*STRIP+H)+'px' : '0';
 }
 addEventListener('resize',layout); if(tg&&tg.onEvent) tg.onEvent('viewportChanged',()=>layout());
@@ -249,7 +251,6 @@ window.__app={decode,cards:()=>cards};
 boot(); reconcile().catch(e=>{ console.warn(e); document.body.classList.remove('loading'); render(); });
 
 document.addEventListener('touchmove',e=>{ if(!window.__noDoc && !e.target.closest('#scroller,.sheet')) e.preventDefault(); },{passive:false});
-(()=>{ const sc=$('#scroller'); sc.addEventListener('touchstart',()=>{ if(!window.__noTop && sc.scrollTop<=0) sc.scrollTop=1; },{passive:true}); })();
 
 /* ---- candy fx ---- */
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -277,4 +278,19 @@ function burst(el){ if(RM) return; const r=el.getBoundingClientRect(), B=$('#bur
   bs.forEach(b=>place(b,0));
   if(run) requestAnimationFrame(tick);
   document.addEventListener('visibilitychange',()=>{ const was=run; run=!RM&&!document.hidden; if(run&&!was){ last=performance.now(); requestAnimationFrame(tick);} });
+})();
+
+/* Wallet-style elastic pull: no container rubber-band, cards spread apart */
+(()=>{ const sc=$('#scroller'), st=$('#stack'); let y0=null, mode=null, raf=0;
+  const rub=d=>{ const k=360; return k*(1-1/(d/k*0.55+1)); };
+  const apply=()=>{ raf=0; layout(); };
+  sc.addEventListener('touchstart',e=>{ if(cur||e.touches.length>1) return; y0=e.touches[0].clientY; mode=null; },{passive:true});
+  sc.addEventListener('touchmove',e=>{ if(y0==null||cur) return; const dy=e.touches[0].clientY-y0;
+    const max=sc.scrollHeight-sc.clientHeight;
+    if(mode==null){ if(dy>0 && sc.scrollTop<=0) mode='pull'; else if(dy<0 && sc.scrollTop>=max-1) mode='edge'; else mode='scroll'; if(mode==='pull'){ st.classList.add('pulling'); y0=e.touches[0].clientY; } }
+    if(mode==='pull'){ e.preventDefault(); spread=rub(Math.max(0,e.touches[0].clientY-y0)); if(!raf) raf=requestAnimationFrame(apply); }
+    else if(mode==='edge'){ e.preventDefault(); }
+  },{passive:false});
+  const end=()=>{ if(mode==='pull'){ st.classList.remove('pulling'); spread=0; layout(); } y0=null; mode=null; };
+  sc.addEventListener('touchend',end); sc.addEventListener('touchcancel',end);
 })();

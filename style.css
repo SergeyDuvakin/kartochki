@@ -9,7 +9,7 @@
 html,body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01"}
 html,body{overflow:hidden;overscroll-behavior:none;height:100%}
 body{position:fixed;inset:0}
-.scroller{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;
+.scroller{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:none;touch-action:pan-y;
   padding:calc(var(--st) + var(--cst) + 12px) 20px calc(var(--sb) + 40px)}
 .scroller .inner{position:relative;min-height:calc(100% + 1px);width:100%}
 body.is-open .scroller{overflow-y:hidden}
@@ -185,3 +185,5 @@ body.loading .skeleton{display:block}
   filter:drop-shadow(0 0 2px #ff9cc8) drop-shadow(0 0 5px rgba(255,170,210,.8));animation:bs .9s cubic-bezier(.2,.8,.3,1) forwards}
 @keyframes bs{0%{opacity:0;transform:translate(0,0) scale(.2)}25%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(var(--sc,1)) rotate(90deg)}}
 @media (prefers-reduced-motion:reduce){.tw,.bs{animation:none;display:none}.bubble{opacity:.35}}
+
+.stack.pulling .card{transition:none}
