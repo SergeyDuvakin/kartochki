@@ -1,8 +1,8 @@
 // Карточки — offline cache. Bump VERSION with every release (matches version.json).
-const VERSION = 10;
+const VERSION = 11;
 const CACHE = 'kartochki-v' + VERSION;
-const SHELL = ['./', 'index.html', 'style.css?v=10', 'app.js?v=10', 'seed.js?v=10', 'version.json',
-  'vendor/telegram-web-app.js?v=10', 'vendor/bwip-js-4.11.4.min.js'];
+const SHELL = ['./', 'index.html', 'style.css?v=11', 'app.js?v=11', 'seed.js?v=11', 'version.json', 'manifest.webmanifest',
+  'icon-180.png', 'icon-192.png', 'icon-512.png', 'vendor/telegram-web-app.js?v=11', 'vendor/bwip-js-4.11.4.min.js'];
 const LAZY = ['vendor/zxing-wasm-2.2.4-full.js', 'vendor/zxing_full.wasm']; // scanner: cached in background, not required to install
 
 self.addEventListener('install', e => {
@@ -31,7 +31,7 @@ self.addEventListener('fetch', e => {
     e.respondWith((async () => {
       const c = await caches.open(CACHE);
       try { const r = await fresh(new Request(url.origin + url.pathname), 3500); c.put('index.html', r.clone()); return r; }
-      catch (_) { return (await c.match('index.html')) || (await c.match('./')) || Response.error(); }
+      catch (_) { return (await c.match('index.html')) || (await c.match('./')) || (await caches.match('index.html', { ignoreSearch: true })) || (await caches.match(req, { ignoreSearch: true })) || Response.error(); }
     })());
     return;
   }

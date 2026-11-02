@@ -1,5 +1,5 @@
 'use strict';
-const APP_V = 10;
+const APP_V = 11;
 fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{ if(j.v>APP_V){ const u=new URL(location.href); if(u.searchParams.get('v')!==String(j.v)){ u.searchParams.set('v',j.v); location.replace(u.toString()); } } }).catch(()=>{});
 const tg = window.Telegram && Telegram.WebApp;
 const inTG = !!(tg && tg.initData);
@@ -281,7 +281,7 @@ function haptic(t){ try{ const h=tg&&tg.HapticFeedback; if(!h) return; t==='succ
 let tt; function toast(t){ const e=$('#toast'); e.textContent=t; e.classList.add('on'); clearTimeout(tt); tt=setTimeout(()=>e.classList.remove('on'),1800); }
 window.__app={decode,cards:()=>cards};
 boot(); reconcile().catch(e=>{ console.warn(e); document.body.classList.remove('loading'); render(); }).finally(()=>{ const w=()=>needBwip().then(()=>setTimeout(warmCodes,300)).catch(()=>{}); document.readyState==='complete'?w():addEventListener('load',w,{once:true}); });
-if('serviceWorker' in navigator && location.protocol==='https:' || location.hostname==='localhost') try{ navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update&&r.update()).catch(()=>{}); }catch(e){}
+if('serviceWorker' in navigator && location.protocol==='https:' || location.hostname==='localhost') try{ navigator.serviceWorker.register('sw.js',{scope:'./',updateViaCache:'none'}).then(r=>r.update&&r.update()).catch(()=>{}); navigator.storage&&navigator.storage.persist&&navigator.storage.persist().catch(()=>{}); }catch(e){}
 
 document.addEventListener('touchmove',e=>{ if(!window.__noDoc && !e.target.closest('#scroller,.sheet')) e.preventDefault(); },{passive:false});
 
