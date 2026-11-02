@@ -1,5 +1,5 @@
 'use strict';
-const APP_V = 14;
+const APP_V = 15;
 fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{ if(j.v>APP_V){ const u=new URL(location.href); if(u.searchParams.get('v')!==String(j.v)){ u.searchParams.set('v',j.v); location.replace(u.toString()); } } }).catch(()=>{});
 const tg = window.Telegram && Telegram.WebApp;
 const inTG = !!(tg && tg.initData);
@@ -409,8 +409,9 @@ function markSaved(f){ try{ localStorage.setItem('bkHash',f._hash); localStorage
 async function saveBackup(force){ // called straight from a tap: share must start without long awaits (iOS gesture rule)
   hideOffer(); let f=bkFile; if(!f){ await (bkP||prepBackup()); f=bkFile; } if(!f){ toast('Не получилось собрать копию'); return; }
   if(!force && f._hash===localStorage.getItem('bkHash')){ showPill('Копия уже актуальна','Сохранить ещё раз','force','Ок'); return; }
-  const done=()=>{ markSaved(f); toast(localStorage.getItem('bkHint')?'Копия сохранена':'Сохранено. В Файлах выбирайте «Заменить»'); localStorage.setItem('bkHint','1'); prepBackup(); };
-  try{ if(navigator.canShare && navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:'CardsForKitty'}); done(); return; } }
+  const done=()=>{ markSaved(f); toast(localStorage.getItem('bkHint')?'Копия сохранена':'Сохранено. В следующий раз — в ту же папку и «Заменить»'); localStorage.setItem('bkHint','1'); prepBackup(); };
+  const shareData={files:[f]}; // exactly one item: with title/text iOS treats it as 2 objects and skips «Заменить»
+  try{ if(navigator.canShare && navigator.canShare(shareData)){ await navigator.share(shareData); done(); return; } }
   catch(e){ if(e&&e.name==='AbortError') return; }
   const u=URL.createObjectURL(f), l=document.createElement('a'); l.href=u; l.download=BK_NAME; document.body.appendChild(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(u),30000);
   done(); }
