@@ -1,5 +1,5 @@
 'use strict';
-const APP_V = 9;
+const APP_V = 10;
 fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{ if(j.v>APP_V){ const u=new URL(location.href); if(u.searchParams.get('v')!==String(j.v)){ u.searchParams.set('v',j.v); location.replace(u.toString()); } } }).catch(()=>{});
 const tg = window.Telegram && Telegram.WebApp;
 const inTG = !!(tg && tg.initData);
@@ -20,15 +20,23 @@ const shopColor = n => (SHOPS.find(s=>s[0].toLowerCase()===String(n).trim().toLo
 
 /* ---------- storage ---------- */
 const CS = inTG && tg.CloudStorage && tg.isVersionAtLeast && tg.isVersionAtLeast('6.9') ? tg.CloudStorage : null;
+const csCall = (fn,fb,ms=6000) => new Promise(r=>{ let done=false; const t=setTimeout(()=>{ if(!done){done=true;r(fb);} },ms);
+  try{ fn((e,v)=>{ if(done) return; done=true; clearTimeout(t); r(e?fb:v); }); }catch(_){ done=true; clearTimeout(t); r(fb); } });
 const store = {
-  async keys(){ if(CS) return new Promise(r=>CS.getKeys((e,k)=>r(e?[]:k)));
+  async keys(){ if(CS) return csCall(cb=>CS.getKeys(cb),null);
     return Object.keys(localStorage).filter(k=>k.startsWith('c_')); },
-  async getMany(keys){ if(!keys.length) return {}; if(CS) return new Promise(r=>CS.getItems(keys,(e,v)=>r(e?{}:v)));
+  async getMany(keys){ if(!keys.length) return {}; if(CS) return csCall(cb=>CS.getItems(keys,cb),null);
     const o={}; keys.forEach(k=>o[k]=localStorage.getItem(k)); return o; },
-  async set(k,v){ if(v.length>4096) throw new Error('Слишком длинное содержимое кода'); if(CS) return new Promise((r,j)=>CS.setItem(k,v,e=>e?j(e):r()));
+  async set(k,v){ if(v.length>4096) throw new Error('Слишком длинное содержимое кода'); if(CS){ const ok=await csCall(cb=>CS.setItem(k,v,cb),'__fail'); pend(k,ok==='__fail'?'set':null); return; }
     localStorage.setItem(k,v); },
-  async del(k){ if(CS) return new Promise(r=>CS.removeItem(k,()=>r())); localStorage.removeItem(k); }
+  async del(k){ if(CS){ const ok=await csCall(cb=>CS.removeItem(k,cb),'__fail'); pend(k,ok==='__fail'?'del':null); return; } localStorage.removeItem(k); }
 };
+// offline writes that CloudStorage did not confirm: retried on the next online sync
+function pendMap(){ try{ return JSON.parse(localStorage.getItem('pending')||'{}'); }catch(e){ return {}; } }
+function pend(k,op){ const m=pendMap(); if(op) m[k]=op; else delete m[k]; try{ Object.keys(m).length?localStorage.setItem('pending',JSON.stringify(m)):localStorage.removeItem('pending'); }catch(e){} }
+async function flushPending(){ const m=pendMap(); for(const [k,op] of Object.entries(m)){
+  if(op==='del') await store.del(k); else { const c=cards.find(x=>'c_'+x.id===k); if(c) await store.set(k,JSON.stringify(c)); else pend(k,null); } }
+  return !Object.keys(pendMap()).length; }
 let dbp; function db(){ return dbp ||= new Promise((r,j)=>{const q=indexedDB.open('kartochki',1);q.onupgradeneeded=()=>q.result.createObjectStore('p');q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error);}); }
 async function photoPut(id,blob){ const d=await db(); return new Promise(r=>{const t=d.transaction('p','readwrite');blob?t.objectStore('p').put(blob,id):t.objectStore('p').delete(id);t.oncomplete=r;}); }
 async function photoGet(id){ const d=await db(); return new Promise(r=>{const q=d.transaction('p').objectStore('p').get(id);q.onsuccess=()=>r(q.result);q.onerror=()=>r(null);}); }
@@ -44,8 +52,10 @@ function boot(){ // synchronous first paint: mirror -> seed -> skeleton
   if(cards.length) render(); else if(CS) document.body.classList.add('loading'); else render();
 }
 async function reconcile(){ // background sync with CloudStorage, no flicker
-  const keys=await store.keys(); const ck=keys.filter(k=>k.startsWith('c_'));
-  const vals=await store.getMany([...ck,'seeded']);
+  if(CS && localStorage.getItem('pending') && !(await flushPending())){ document.body.classList.remove('loading'); render(); return; } // still offline: local mirror wins
+  const keys=await store.keys(); if(!keys){ document.body.classList.remove('loading'); render(); return; } // offline / no answer: keep local mirror
+  const ck=keys.filter(k=>k.startsWith('c_'));
+  const vals=await store.getMany([...ck,'seeded']); if(!vals){ document.body.classList.remove('loading'); render(); return; }
   let remote=ck.map(k=>{try{return JSON.parse(vals[k])}catch(e){return null}}).filter(Boolean);
   if(!vals.seeded && window.SEED){ // first launch anywhere: push seed to cloud
     const have=new Set(remote.map(c=>c.id));
@@ -55,7 +65,7 @@ async function reconcile(){ // background sync with CloudStorage, no flicker
   }
   localStorage.setItem('seeded','1');
   document.body.classList.remove('loading');
-  if(JSON.stringify(remote.map(c=>[c.id,c.name,c.number,c.color,c.order,c.display]).sort())!==JSON.stringify(cards.map(c=>[c.id,c.name,c.number,c.color,c.order,c.display]).sort())||!cards.length){ cards=remote; }
+  if(JSON.stringify(remote.map(c=>[c.id,c.name,c.number,c.color,c.order,c.display,c.format,!!c.pin]).sort())!==JSON.stringify(cards.map(c=>[c.id,c.name,c.number,c.color,c.order,c.display,c.format,!!c.pin]).sort())||!cards.length){ cards=remote; }
   render();
 }
 const save = c => store.set('c_'+c.id, JSON.stringify(c));
@@ -141,8 +151,27 @@ $('#moreBtn').onclick=e=>{ closeCtx(); const m=document.createElement('div'); m.
 function drawCode(canvas,c){ const bcid=(FORMATS.find(f=>f[0]===c.format)||[0,'code128'])[1];
   const opts={bcid,text:String(c.number),scale:4,includetext:false,backgroundcolor:'FFFFFF'};
   if(bcid==='pdf417') opts.scale=3; if(!['qrcode','datamatrix','azteccode','pdf417'].includes(bcid)) opts.height=24;
-  try{ bwipjs.toCanvas(canvas,opts); }catch(e){ try{bwipjs.toCanvas(canvas,{...opts,bcid:'code128'});}catch(_){} }
+  const sq0=['qrcode','datamatrix','azteccode'].includes(bcid); canvas.style.width = sq0?'62%':'100%'; canvas.parentElement.classList.toggle('sq',sq0);
+  if(!window.bwipjs){ drawCached(canvas,c); retryCode(canvas,c); return; }
+  let ok=false; try{ bwipjs.toCanvas(canvas,opts); ok=true; }catch(e){ try{bwipjs.toCanvas(canvas,{...opts,bcid:'code128'}); ok=true;}catch(_){} }
+  if(ok) rememberCode(c,canvas);
   const sq=['qrcode','datamatrix','azteccode'].includes(bcid); canvas.style.width = sq?'62%':'100%'; canvas.parentElement.classList.toggle('sq',sq); }
+/* offline: bundled renderer, rendered codes remembered locally, retry instead of a blank area */
+let bwipP=null; function needBwip(){ if(window.bwipjs) return Promise.resolve(); return bwipP ||= new Promise((r,j)=>{ const s=document.createElement('script'); s.src='vendor/bwip-js-4.11.4.min.js?r='+Date.now(); s.onload=()=>window.bwipjs?r():j(); s.onerror=j; document.head.appendChild(s); }).catch(e=>{ bwipP=null; throw e; }); }
+let retryT=0; function retryCode(canvas,c,n=0){ clearTimeout(retryT); if(cur!==c) return;
+  retryT=setTimeout(()=>{ if(cur!==c) return; (window.bwipjs?Promise.resolve():needBwip()).then(()=>{ if(cur===c) drawCode(canvas,c); }).catch(()=>retryCode(canvas,c,n+1)); }, Math.min(4000,400+n*600)); }
+const codeKey=c=>'code_'+hash(c.format+'|'+c.number);
+function codeCache(){ try{ return JSON.parse(localStorage.getItem('codes')||'{}'); }catch(e){ return {}; } }
+function rememberCode(c,canvas){ try{ const m=codeCache(), k=codeKey(c); if(m[k]) return; m[k]=canvas.toDataURL('image/png'); localStorage.setItem('codes',JSON.stringify(m)); }catch(e){} }
+function drawCached(canvas,c){ const u=codeCache()[codeKey(c)]; const x=canvas.getContext('2d');
+  if(!u){ canvas.width=1; canvas.height=1; return; } const im=new Image(); im.onload=()=>{ if(cur!==c) return; canvas.width=im.naturalWidth; canvas.height=im.naturalHeight; x.drawImage(im,0,0); }; im.src=u; }
+function warmCodes(){ // pre-render every card's code so the next offline open has it
+  if(!window.bwipjs) return; const keep={}, m=codeCache(); let changed=false;
+  for(const c of cards){ const k=codeKey(c); if(m[k]){ keep[k]=m[k]; continue; }
+    try{ const cv=document.createElement('canvas'); const bcid=(FORMATS.find(f=>f[0]===c.format)||[0,'code128'])[1];
+      const o={bcid,text:String(c.number),scale:4,includetext:false,backgroundcolor:'FFFFFF'}; if(bcid==='pdf417') o.scale=3; if(!['qrcode','datamatrix','azteccode','pdf417'].includes(bcid)) o.height=24;
+      try{ bwipjs.toCanvas(cv,o); }catch(e){ bwipjs.toCanvas(cv,{...o,bcid:'code128'}); } keep[k]=cv.toDataURL('image/png'); changed=true; }catch(e){} }
+  if(changed||Object.keys(keep).length!==Object.keys(m).length) try{ localStorage.setItem('codes',JSON.stringify(keep)); }catch(e){} }
 function prettyNum(c){ let n=String(c.display||'').trim(); if(!n){ n=String(c.number); if(n.length>24) return ''; }
   return /^\d{8,}$/.test(n) ? n.replace(/(\d{4})(?=\d)/g,'$1 ') : n; }
 let openedAt=0;
@@ -154,7 +183,7 @@ function openCard(c){ cur=c; openedAt=Date.now(); haptic('light'); closeCtx();
   drawCode($('#vCode'),c); const n=prettyNum(c); $('#vNum').textContent=n; $('#numRow').classList.toggle('hidden',!n);
   const v=$('#viewer'); v.style.top = (want + cardH() + 18)+'px'; v.classList.remove('hidden');
   c.uses=(c.uses||0)+1; c.last=Date.now(); save(c); setBright(true); try{tg&&tg.BackButton.show();}catch(e){} }
-function closeViewer(){ if(!cur) return; cur=null; document.body.classList.remove('is-open'); $('#viewer').classList.add('hidden'); setBright(false); syncBack(); layout(); }
+function closeViewer(){ if(!cur) return; cur=null; clearTimeout(retryT); document.body.classList.remove('is-open'); $('#viewer').classList.add('hidden'); setBright(false); syncBack(); layout(); }
 function setBright(on){ try{ if(tg && tg.isVersionAtLeast('8.0') && tg.setBrightness) tg.setBrightness(on?1:-1); }catch(e){} }
 document.addEventListener('click',e=>{ if(!cur||Date.now()-openedAt<400) return; if(e.target.closest('#viewer,.sheet-wrap,.ctx')) return;
   if(e.target.closest('.card')||e.target===document.body||e.target.closest('.stack')||e.target===document.documentElement) closeViewer(); });
@@ -183,7 +212,7 @@ $('#addMenu').addEventListener('click',e=>{ const b=e.target.closest('[data-act]
   if(b.dataset.act==='cancel'){ $('#addMenu').classList.add('hidden'); return; } if(b.dataset.act==='gallery') return; if(b.dataset.act==='camera') startCam(); if(b.dataset.act==='manual') openEditor(null,{}); });
 $('#fileIn').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; $('#addMenu').classList.add('hidden'); await fromImage(f); };
 
-let zxP; function needZX(){ return window.ZXingWASM?Promise.resolve():(zxP ||= new Promise((r,j)=>{ const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/zxing-wasm@2.2.4/dist/iife/full/index.js'; s.onload=r; s.onerror=j; document.head.appendChild(s); })); }
+let zxP; function needZX(){ return window.ZXingWASM?Promise.resolve():(zxP ||= new Promise((r,j)=>{ const s=document.createElement('script'); s.src='vendor/zxing-wasm-2.2.4-full.js'; s.onload=()=>{ try{ ZXingWASM.prepareZXingModule({overrides:{locateFile:(f,d)=>f.endsWith('.wasm')?new URL('vendor/'+f,location.href).href:d+f},fireImmediately:false}); }catch(e){} r(); }; s.onerror=()=>{ zxP=null; j(); }; document.head.appendChild(s); })); }
 async function decode(src){ // src: Blob or ImageData
   await needZX();
   const r = await ZXingWASM.readBarcodes(src,{tryHarder:true,maxNumberOfSymbols:1});
@@ -245,13 +274,14 @@ $('#form').onsubmit=async e=>{ e.preventDefault();
   try{ await save(c); }catch(err){ $('#edMsg').textContent=err.message; return; }
   if(draft.photo){ await photoPut(c.id,draft.photo); photoURLs[c.id]=URL.createObjectURL(draft.photo); }
   if(!edit) cards.push(c);
-  closeSheet('#editor'); render(); haptic('success'); };
+  closeSheet('#editor'); render(); haptic('success'); setTimeout(warmCodes,400); };
 
 /* misc */
 function haptic(t){ try{ const h=tg&&tg.HapticFeedback; if(!h) return; t==='success'?h.notificationOccurred('success'):h.impactOccurred(t); }catch(e){} }
 let tt; function toast(t){ const e=$('#toast'); e.textContent=t; e.classList.add('on'); clearTimeout(tt); tt=setTimeout(()=>e.classList.remove('on'),1800); }
 window.__app={decode,cards:()=>cards};
-boot(); reconcile().catch(e=>{ console.warn(e); document.body.classList.remove('loading'); render(); });
+boot(); reconcile().catch(e=>{ console.warn(e); document.body.classList.remove('loading'); render(); }).finally(()=>{ const w=()=>needBwip().then(()=>setTimeout(warmCodes,300)).catch(()=>{}); document.readyState==='complete'?w():addEventListener('load',w,{once:true}); });
+if('serviceWorker' in navigator && location.protocol==='https:' || location.hostname==='localhost') try{ navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update&&r.update()).catch(()=>{}); }catch(e){}
 
 document.addEventListener('touchmove',e=>{ if(!window.__noDoc && !e.target.closest('#scroller,.sheet')) e.preventDefault(); },{passive:false});
 
