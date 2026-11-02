@@ -1,5 +1,5 @@
 'use strict';
-const APP_V = 13;
+const APP_V = 14;
 fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{ if(j.v>APP_V){ const u=new URL(location.href); if(u.searchParams.get('v')!==String(j.v)){ u.searchParams.set('v',j.v); location.replace(u.toString()); } } }).catch(()=>{});
 const tg = window.Telegram && Telegram.WebApp;
 const inTG = !!(tg && tg.initData);
@@ -136,7 +136,7 @@ function bindCard(el){ let t, sx, sy, drag=false, held=false, startIdx;
       if(ni!==oi){ list.splice(oi,1); list.splice(ni,0,el._c); haptic('light'); layout(); } } });
   const end=async e=>{ clearTimeout(t); el.classList.remove('lifted'); activeEnd=null; const wasDrag=drag, wasHeld=held; drag=false; held=false;
     if(wasDrag){ el.classList.remove('dragging'); localStorage.setItem('manualOrder','1');
-      list.forEach((c,i)=>{ if(c.order!==i){ c.order=i; save(c);} }); render(); return; }
+      list.forEach((c,i)=>{ if(c.order!==i){ c.order=i; save(c);} }); render(); offerBackup(); return; }
     if(wasHeld){ ctxMenu(e,el._c); return; }
     if(e.type==='pointerup' && !cur && Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)<8) openCard(el._c); };
   el.addEventListener('pointerup',end); el.addEventListener('pointercancel',end);
@@ -146,7 +146,7 @@ function bindCard(el){ let t, sx, sy, drag=false, held=false, startIdx;
 function ctxMenu(e,c){ closeCtx(); const m=document.createElement('div'); m.className='ctx';
   m.innerHTML=`<button data-a="pin">${c.pin?'Открепить':'Закрепить наверху'}</button><button data-a="edit">Изменить</button><button data-a="del" class="danger">Удалить</button>`;
   m.style.left=Math.min(e.clientX,innerWidth-200)+'px'; m.style.top=Math.min(e.clientY,innerHeight-120)+'px';
-  m.onclick=async ev=>{ const a=ev.target.dataset.a; closeCtx(); if(a==='pin'){ c.pin=!c.pin; c.upd=Date.now(); await save(c); render(); toast(c.pin?'Закреплено':'Откреплено'); } if(a==='edit') openEditor(c); if(a==='del') delCard(c); };
+  m.onclick=async ev=>{ const a=ev.target.dataset.a; closeCtx(); if(a==='pin'){ c.pin=!c.pin; c.upd=Date.now(); await save(c); render(); toast(c.pin?'Закреплено':'Откреплено'); offerBackup(); } if(a==='edit') openEditor(c); if(a==='del') delCard(c); };
   document.body.appendChild(m); const off=ev=>{ if(m.contains(ev.target)) return; document.removeEventListener('pointerdown',off,true); closeCtx(); }; setTimeout(()=>document.addEventListener('pointerdown',off,true),0); }
 function closeCtx(){ document.querySelectorAll('.ctx').forEach(x=>x.remove()); }
 $('#search').addEventListener('input',render);
@@ -155,7 +155,7 @@ $('#searchCancel').onclick=()=>{ document.body.classList.remove('searching'); $(
 $('#moreBtn').onclick=e=>{ closeCtx(); const m=document.createElement('div'); m.className='ctx';
   m.innerHTML=`<button data-a="add">Добавить карту</button><button data-a="auto">Сортировать по частоте</button><button data-a="bsave">Сохранить копию</button><button data-a="bload">Восстановить из копии</button>`; prepBackup();
   const r=e.currentTarget.getBoundingClientRect(); m.style.right=(innerWidth-r.right)+'px'; m.style.top=(r.bottom+8)+'px'; m.style.transformOrigin='top right';
-  m.onclick=ev=>{ const a=ev.target.dataset.a; closeCtx(); if(a==='add') $('#addBtn').click(); if(a==='auto'){ localStorage.removeItem('manualOrder'); render(); toast('Частые карты — наверху'); } if(a==='bsave') saveBackup(); if(a==='bload') $('#restoreIn').click(); };
+  m.onclick=ev=>{ const a=ev.target.dataset.a; closeCtx(); if(a==='add') $('#addBtn').click(); if(a==='auto'){ localStorage.removeItem('manualOrder'); render(); toast('Частые карты — наверху'); offerBackup(); } if(a==='bsave') saveBackup(); if(a==='bload') $('#restoreIn').click(); };
   document.body.appendChild(m); const off=ev=>{ if(m.contains(ev.target)) return; document.removeEventListener('pointerdown',off,true); closeCtx(); }; setTimeout(()=>document.addEventListener('pointerdown',off,true),0); };
 
 /* ---------- open card ---------- */
@@ -225,10 +225,13 @@ $('#addMenu').addEventListener('click',e=>{ const b=e.target.closest('[data-act]
   if(b.dataset.act==='cancel'){ $('#addMenu').classList.add('hidden'); return; } if(b.dataset.act==='gallery') return; if(b.dataset.act==='camera') startCam(); if(b.dataset.act==='manual') openEditor(null,{}); });
 $('#fileIn').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; $('#addMenu').classList.add('hidden'); await fromImage(f); };
 
-let zxP; function needZX(){ return window.ZXingWASM?Promise.resolve():(zxP ||= new Promise((r,j)=>{ const s=document.createElement('script'); s.src='vendor/zxing-wasm-2.2.4-full.js'; s.onload=()=>{ try{ ZXingWASM.prepareZXingModule({overrides:{locateFile:(f,d)=>f.endsWith('.wasm')?new URL('vendor/'+f,location.href).href:d+f},fireImmediately:false}); }catch(e){} r(); }; s.onerror=()=>{ zxP=null; j(); }; document.head.appendChild(s); })); }
+const ZXO={locateFile:(f,d)=>f.endsWith('.wasm')?new URL('vendor/'+f,location.href).href:d+f};
+let zxP, zxBad=false; function needZX(){ return window.ZXingWASM?Promise.resolve():(zxP ||= new Promise((r,j)=>{ const s=document.createElement('script'); s.src='vendor/zxing-wasm-2.2.4-full.js'; s.onload=()=>{ try{ ZXingWASM.prepareZXingModule({overrides:ZXO,fireImmediately:false}); }catch(e){} r(); }; s.onerror=()=>{ zxP=null; j(); }; document.head.appendChild(s); })); }
 async function decode(src){ // src: Blob or ImageData
   await needZX();
-  const r = await ZXingWASM.readBarcodes(src,{tryHarder:true,maxNumberOfSymbols:1});
+  if(zxBad){ zxBad=false; try{ const pr=ZXingWASM.prepareZXingModule({overrides:ZXO,equalityFn:()=>false,fireImmediately:true}); pr&&pr.catch&&pr.catch(()=>{ zxBad=true; }); }catch(e){} }
+  // if the scanner engine could not load (offline before it was cached) never hang: give up after 10 s, retry fresh next time
+  const r = await Promise.race([ZXingWASM.readBarcodes(src,{tryHarder:true,maxNumberOfSymbols:1}).catch(e=>{ zxBad=true; throw e; }), new Promise((_,j)=>setTimeout(()=>{ zxBad=true; j(new Error('scanner unavailable')); },10000))]);
   const b = r.find(x=>x.isValid && x.text); return b ? {text:b.text, format:normFmt(b.format)} : null; }
 function normFmt(f){ return ({'QR Code':'QRCode','QRCode':'QRCode','EAN-13':'EAN-13','EAN13':'EAN-13'}[f]) || f; }
 async function fromImage(file){ toast('Распознаю…');
@@ -283,7 +286,7 @@ $('#form').onsubmit=async e=>{ e.preventDefault();
   let fmt=$('#fFmt').value, num=$('#fNum').value.trim();
   if(fmt==='EAN-13' && !/^\d{12,13}$/.test(num.replace(/\s/g,''))) fmt='Code128'; else if(fmt==='EAN-13') num=num.replace(/\s/g,'');
   const c = edit || {id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), order:cards.length, uses:0};
-  c.upd=Date.now(); Object.assign(c,{name:$('#fName').value.trim(),number:num,format:fmt,color:draft.color,display:$('#fDisp').value.trim()||(/^\d{8,14}$/.test(num)?num:'')});
+  if(!edit || snapForm()!==snap0) c.upd=Date.now(); Object.assign(c,{name:$('#fName').value.trim(),number:num,format:fmt,color:draft.color,display:$('#fDisp').value.trim()||(/^\d{8,14}$/.test(num)?num:'')});
   try{ await save(c); }catch(err){ $('#edMsg').textContent=err.message; return; }
   if(draft.photo){ await photoPut(c.id,draft.photo); photoURLs[c.id]=URL.createObjectURL(draft.photo); }
   if(!edit) cards.push(c);
@@ -387,44 +390,60 @@ function sheetSwipe(sel,onDismiss){ const w=$(sel), sh=w.querySelector('.sheet')
 sheetSwipe('#addMenu',()=>closeSheet('#addMenu'));
 sheetSwipe('#editor',()=>requestCloseEditor());
 
-/* ---------- backup file «Карточки.json»: save to Files / restore ---------- */
+/* ---------- backup file CardsForKitty.json: save to Files / restore ---------- */
 const BK_NAME='CardsForKitty.json';
 const blobToDataURL=b=>new Promise(r=>{ const f=new FileReader(); f.onload=()=>r(f.result); f.onerror=()=>r(null); f.readAsDataURL(b); });
 async function dataURLToBlob(u){ return (await fetch(u)).blob(); }
+// what matters for "is the saved copy current": card content, photos present, sort setting (not open counters)
+async function dataHash(){ const ph=[]; for(const c of cards){ try{ const b=await photoGet(c.id); if(b&&b.size) ph.push(c.id+':'+b.size); }catch(e){} }
+  return String(hash(JSON.stringify([[...cards].sort((x,y)=>x.id<y.id?-1:1).map(c=>[c.id,c.name,String(c.number),c.format,c.color,c.display||'',!!c.pin,c.order||0]),ph.sort(),!!localStorage.getItem('manualOrder')]))); }
 async function buildBackup(){ const photos={};
   for(const c of cards){ try{ const b=await photoGet(c.id); if(b&&b.size) photos[c.id]=await blobToDataURL(b); }catch(e){} }
-  const data={app:'kartochki',format:1,created:new Date().toISOString(),version:APP_V,cards:cards.map(c=>({...c})),photos,
+  const now=new Date().toISOString();
+  const data={app:'kartochki',format:1,created:now,savedAt:now,version:APP_V,cards:cards.map(c=>({...c})),photos,
     settings:{manualOrder:localStorage.getItem('manualOrder')?1:0}};
-  return new File([JSON.stringify(data)],BK_NAME,{type:'application/json'}); }
+  const f=new File([JSON.stringify(data)],BK_NAME,{type:'application/json'}); f._hash=await dataHash(); return f; }
 let bkFile=null, bkP=null;
 function prepBackup(){ bkFile=null; bkP=buildBackup().then(f=>bkFile=f).catch(()=>null); return bkP; }
-async function saveBackup(){ // called straight from a tap: share must start without long awaits (iOS gesture rule)
+function markSaved(f){ try{ localStorage.setItem('bkHash',f._hash); localStorage.setItem('bkAt',Date.now()); }catch(e){} }
+async function saveBackup(force){ // called straight from a tap: share must start without long awaits (iOS gesture rule)
   hideOffer(); let f=bkFile; if(!f){ await (bkP||prepBackup()); f=bkFile; } if(!f){ toast('Не получилось собрать копию'); return; }
-  try{ if(navigator.canShare && navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:'CardsForKitty'}); localStorage.setItem('bkAt',Date.now()); toast('Копия сохранена'); return; } }
+  if(!force && f._hash===localStorage.getItem('bkHash')){ showPill('Копия уже актуальна','Сохранить ещё раз','force','Ок'); return; }
+  const done=()=>{ markSaved(f); toast(localStorage.getItem('bkHint')?'Копия сохранена':'Сохранено. В Файлах выбирайте «Заменить»'); localStorage.setItem('bkHint','1'); prepBackup(); };
+  try{ if(navigator.canShare && navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:'CardsForKitty'}); done(); return; } }
   catch(e){ if(e&&e.name==='AbortError') return; }
   const u=URL.createObjectURL(f), l=document.createElement('a'); l.href=u; l.download=BK_NAME; document.body.appendChild(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(u),30000);
-  localStorage.setItem('bkAt',Date.now()); toast('Копия сохранена'); }
+  done(); }
 function validBackup(d){ return d && d.app==='kartochki' && Array.isArray(d.cards) && d.cards.every(c=>c && typeof c.id==='string' && c.id && typeof c.name==='string' && c.number!=null && typeof c.format==='string' && String(c.number).length<=4096); }
-async function restoreFrom(file){
-  if(!file) return; if(file.size>30*1024*1024){ toast('Файл слишком большой'); return; }
-  let d=null; try{ d=JSON.parse(await file.text()); }catch(e){}
-  if(!validBackup(d)){ toast('Это не копия «Карточек»'); return; }
+const bkTime=d=>Date.parse(d.savedAt||d.created||'')||0;
+function fmtWhen(t){ if(!t) return ''; try{ return new Date(t).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } }
+async function readBackup(file){ if(!file||file.size>30*1024*1024) return null; try{ const d=JSON.parse(await file.text()); return validBackup(d)?d:null; }catch(e){ return null; } }
+async function restoreFrom(files){ // one or several files: the newest copy wins, whatever the file is called
+  files=[].concat(files||[]).filter(Boolean); if(!files.length) return;
+  if(files.length===1 && files[0].size>30*1024*1024){ toast('Файл слишком большой'); return; }
+  const all=(await Promise.all(files.map(readBackup))).filter(Boolean);
+  if(!all.length){ toast('Это не копия «Карточек»'); return; }
+  const d=all.sort((x,y)=>bkTime(y)-bkTime(x))[0];
   const byId=new Map(cards.map(c=>[c.id,c])); let add=0, upd=0;
-  const plan=d.cards.map(b=>{ const l=byId.get(b.id); if(!l){ add++; return b; } if((b.upd||0)>(l.upd||0)){ upd++; return b; } return null; }).filter(Boolean);
+  const sameCard=new Set(cards.map(c=>c.format+'|'+String(c.number))); // a re-added card (new id, same code) is not a duplicate
+  const plan=d.cards.map(b=>{ const l=byId.get(b.id); if(!l){ if(sameCard.has(b.format+'|'+String(b.number))) return null; add++; return b; } if((b.upd||0)>(l.upd||0)){ upd++; return b; } return null; }).filter(Boolean);
+  const when=fmtWhen(bkTime(d));
   if(!plan.length){ toast('Всё уже есть — менять нечего'); return; }
-  const ok=await confirmBox(`Восстановить из копии: ${add} новых${upd?`, ${upd} обновить`:''}? Остальные карты останутся.`); if(!ok) return;
+  const ok=await confirmBox(`Копия${when?` от ${when}`:''}: ${add} новых${upd?`, ${upd} обновить`:''}. Восстановить? Остальные карты останутся.`); if(!ok) return;
   for(const b of plan){ const c={id:b.id,order:b.order??cards.length,uses:b.uses||0,name:b.name,number:String(b.number),format:b.format,color:/^#[0-9a-f]{6}$/i.test(b.color||'')?b.color:PALETTE[0],display:b.display||''};
     if(b.pin) c.pin=true; if(b.upd) c.upd=b.upd; if(b.last) c.last=b.last;
     try{ await save(c); }catch(e){ continue; }
     const i=cards.findIndex(x=>x.id===c.id); if(i>=0) cards[i]=c; else cards.push(c);
     const p=d.photos&&d.photos[c.id]; if(typeof p==='string'&&p.startsWith('data:image/')) try{ const bl=await dataURLToBlob(p); await photoPut(c.id,bl); photoURLs[c.id]=URL.createObjectURL(bl); }catch(e){} }
   if(d.settings&&d.settings.manualOrder) localStorage.setItem('manualOrder','1');
-  localStorage.setItem('seeded','1'); render(); setTimeout(warmCodes,300); haptic('success'); toast(`Готово: ${add} новых${upd?`, ${upd} обновлено`:''}`); }
-$('#restoreIn').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; restoreFrom(f); };
-// gentle reminder after changes: at most once per 10 min, hides itself, never blocks
-let offerT=0;
-function offerBackup(){ if(inTG) return; const last=+localStorage.getItem('bkAsk')||0; if(Date.now()-last<10*60*1000) return;
-  localStorage.setItem('bkAsk',Date.now()); prepBackup(); const o=$('#bkOffer'); o.classList.add('on'); clearTimeout(offerT); offerT=setTimeout(hideOffer,7000); }
+  localStorage.setItem('seeded','1'); render(); setTimeout(warmCodes,300); haptic('success'); toast(`Готово: ${add} новых${upd?`, ${upd} обновлено`:''}`); setTimeout(offerBackup,1900); }
+$('#restoreIn').onchange=e=>{ const f=[...e.target.files]; e.target.value=''; restoreFrom(f); };
+// gentle reminder after every real change (differs from the last saved copy); one pill, restarted, never stacked
+let offerT=0, pillAct='save';
+function showPill(text,primary,act,second){ const o=$('#bkOffer'); o.querySelector('span').textContent=text; const [b1,b2]=o.querySelectorAll('button'); b1.textContent=primary; b2.textContent=second||'Позже'; pillAct=act;
+  o.classList.add('on'); clearTimeout(offerT); offerT=setTimeout(hideOffer,7000); }
+async function offerBackup(){ if(inTG) return; const h=await dataHash(); if(h===localStorage.getItem('bkHash')){ hideOffer(); return; }
+  prepBackup(); showPill('Обновить копию в Файлах?','Сохранить','save'); }
 function hideOffer(){ clearTimeout(offerT); $('#bkOffer').classList.remove('on'); }
-$('#bkOffer').addEventListener('click',e=>{ const b=e.target.closest('[data-b]'); if(!b) return; if(b.dataset.b==='save') saveBackup(); else hideOffer(); });
-window.__app.backup={buildBackup,restoreFrom,validBackup,photoPut,photoGet};
+$('#bkOffer').addEventListener('click',e=>{ const b=e.target.closest('[data-b]'); if(!b) return; if(b.dataset.b==='save') saveBackup(pillAct==='force'); else hideOffer(); });
+window.__app.backup={buildBackup,restoreFrom,validBackup,photoPut,photoGet,dataHash};
