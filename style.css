@@ -211,3 +211,7 @@ body.loading .skeleton{display:block}
 .cbtn.danger{color:#ff3b30}
 .cancelbtn{margin-top:8px;border-radius:16px;border:0;font-weight:600;background:rgba(255,255,255,.95);box-shadow:0 10px 40px -10px rgba(120,40,80,.2)}
 .sheet{will-change:transform;overscroll-behavior:contain}
+.bkoffer{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 18px);transform:translate(-50%,24px);display:flex;align-items:center;gap:4px;background:rgba(28,28,30,.9);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);color:#fff;padding:6px 6px 6px 16px;border-radius:99px;opacity:0;pointer-events:none;transition:.45s var(--spring);z-index:98;font-size:14px;font-weight:500;white-space:nowrap}
+.bkoffer.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.bkoffer button{color:#fff;font-size:14px;padding:7px 11px;border-radius:99px;opacity:.75}
+.bkoffer button.strong{opacity:1;font-weight:600;background:rgba(255,255,255,.16)}

@@ -46,5 +46,13 @@ window.SEED=[
   "color": "#a9cfb0",
   "photo": "seed/perekrestok.jpg",
   "display": "2674624199273"
+ },
+ {
+  "name": "METRO",
+  "number": "6430104400975613021711",
+  "format": "ITF",
+  "color": "#aec3ee",
+  "display": "6430104400975613021711",
+  "since": 2
  }
 ];

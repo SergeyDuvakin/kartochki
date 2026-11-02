@@ -1,5 +1,5 @@
 'use strict';
-const APP_V = 12;
+const APP_V = 13;
 fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{ if(j.v>APP_V){ const u=new URL(location.href); if(u.searchParams.get('v')!==String(j.v)){ u.searchParams.set('v',j.v); location.replace(u.toString()); } } }).catch(()=>{});
 const tg = window.Telegram && Telegram.WebApp;
 const inTG = !!(tg && tg.initData);
@@ -38,12 +38,17 @@ async function flushPending(){ const m=pendMap(); for(const [k,op] of Object.ent
   if(op==='del') await store.del(k); else { const c=cards.find(x=>'c_'+x.id===k); if(c) await store.set(k,JSON.stringify(c)); else pend(k,null); } }
   return !Object.keys(pendMap()).length; }
 let dbp; function db(){ return dbp ||= new Promise((r,j)=>{const q=indexedDB.open('kartochki',1);q.onupgradeneeded=()=>q.result.createObjectStore('p');q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error);}); }
-async function photoPut(id,blob){ const d=await db(); return new Promise(r=>{const t=d.transaction('p','readwrite');blob?t.objectStore('p').put(blob,id):t.objectStore('p').delete(id);t.oncomplete=r;}); }
-async function photoGet(id){ const d=await db(); return new Promise(r=>{const q=d.transaction('p').objectStore('p').get(id);q.onsuccess=()=>r(q.result);q.onerror=()=>r(null);}); }
+function idbTx(d,fn){ return new Promise(r=>{ try{ const t=d.transaction('p','readwrite'); fn(t.objectStore('p')); t.oncomplete=()=>r(true); t.onerror=t.onabort=()=>r(false); }catch(e){ r(false); } }); }
+async function photoPut(id,blob){ try{ const d=await db(); // never hang: some WebViews refuse Blobs in IndexedDB -> store raw bytes instead
+  if(!blob) return idbTx(d,s=>s.delete(id));
+  if(await idbTx(d,s=>s.put(blob,id))) return true;
+  const buf=await blob.arrayBuffer(); return idbTx(d,s=>s.put({buf,type:blob.type||'image/jpeg'},id)); }catch(e){ return false; } }
+async function photoGet(id){ try{ const d=await db(); const v=await new Promise(r=>{const q=d.transaction('p').objectStore('p').get(id);q.onsuccess=()=>r(q.result);q.onerror=()=>r(null);}); return v&&v.buf?new Blob([v.buf],{type:v.type}):v; }catch(e){ return null; } }
 
 let cards = [];
 const photoURLs = {};
 function readMirror(){ try{ return JSON.parse(localStorage.getItem('mirror')||'null'); }catch(e){ return null; } }
+const SEED_V=2;
 function seedCards(){ return (window.SEED||[]).map((d,i)=>({id:'seed'+i,order:i,uses:0,name:d.name,number:d.number,format:d.format,color:d.color,display:d.display||''})); }
 function boot(){ // synchronous first paint: mirror -> seed -> skeleton
   const m=readMirror();
@@ -55,13 +60,19 @@ async function reconcile(){ // background sync with CloudStorage, no flicker
   if(CS && localStorage.getItem('pending') && !(await flushPending())){ document.body.classList.remove('loading'); render(); return; } // still offline: local mirror wins
   const keys=await store.keys(); if(!keys){ document.body.classList.remove('loading'); render(); return; } // offline / no answer: keep local mirror
   const ck=keys.filter(k=>k.startsWith('c_'));
-  const vals=await store.getMany([...ck,'seeded']); if(!vals){ document.body.classList.remove('loading'); render(); return; }
+  const vals=await store.getMany([...ck,'seeded','seedV']); if(!vals){ document.body.classList.remove('loading'); render(); return; }
   let remote=ck.map(k=>{try{return JSON.parse(vals[k])}catch(e){return null}}).filter(Boolean);
   if(!vals.seeded && window.SEED){ // first launch anywhere: push seed to cloud
     const have=new Set(remote.map(c=>c.id));
     const add=seedCards().filter(c=>!have.has(c.id)).map(c=>cards.find(x=>x.id===c.id)||c);
     await Promise.all(add.map(save)); remote.push(...add);
-    await store.set('seeded','1');
+    await store.set('seeded','1'); await store.set('seedV',String(SEED_V)); vals.seedV=String(SEED_V);
+  }
+  if(window.SEED && +(vals.seedV||1)<SEED_V){ // later-added preset cards: once, never duplicate or bring back a deleted one
+    const have=new Set(remote.map(c=>c.id)), nums=new Set(remote.map(c=>String(c.number).replace(/\s/g,'')));
+    const add=seedCards().filter((c,i)=>(window.SEED[i].since||1)>+(vals.seedV||1) && !have.has(c.id) && !nums.has(String(c.number)));
+    add.forEach(c=>{ c.order=remote.length+add.indexOf(c); c.upd=Date.now(); });
+    await Promise.all(add.map(save)); remote.push(...add); await store.set('seedV',String(SEED_V));
   }
   localStorage.setItem('seeded','1');
   document.body.classList.remove('loading');
@@ -135,16 +146,16 @@ function bindCard(el){ let t, sx, sy, drag=false, held=false, startIdx;
 function ctxMenu(e,c){ closeCtx(); const m=document.createElement('div'); m.className='ctx';
   m.innerHTML=`<button data-a="pin">${c.pin?'Открепить':'Закрепить наверху'}</button><button data-a="edit">Изменить</button><button data-a="del" class="danger">Удалить</button>`;
   m.style.left=Math.min(e.clientX,innerWidth-200)+'px'; m.style.top=Math.min(e.clientY,innerHeight-120)+'px';
-  m.onclick=async ev=>{ const a=ev.target.dataset.a; closeCtx(); if(a==='pin'){ c.pin=!c.pin; await save(c); render(); toast(c.pin?'Закреплено':'Откреплено'); } if(a==='edit') openEditor(c); if(a==='del') delCard(c); };
+  m.onclick=async ev=>{ const a=ev.target.dataset.a; closeCtx(); if(a==='pin'){ c.pin=!c.pin; c.upd=Date.now(); await save(c); render(); toast(c.pin?'Закреплено':'Откреплено'); } if(a==='edit') openEditor(c); if(a==='del') delCard(c); };
   document.body.appendChild(m); const off=ev=>{ if(m.contains(ev.target)) return; document.removeEventListener('pointerdown',off,true); closeCtx(); }; setTimeout(()=>document.addEventListener('pointerdown',off,true),0); }
 function closeCtx(){ document.querySelectorAll('.ctx').forEach(x=>x.remove()); }
 $('#search').addEventListener('input',render);
 $('#searchBtn').onclick=()=>{ document.body.classList.add('searching'); setTimeout(()=>$('#search').focus(),120); };
 $('#searchCancel').onclick=()=>{ document.body.classList.remove('searching'); $('#search').value=''; $('#search').blur(); render(); };
 $('#moreBtn').onclick=e=>{ closeCtx(); const m=document.createElement('div'); m.className='ctx';
-  m.innerHTML=`<button data-a="add">Добавить карту</button><button data-a="auto">Сортировать по частоте</button>`;
+  m.innerHTML=`<button data-a="add">Добавить карту</button><button data-a="auto">Сортировать по частоте</button><button data-a="bsave">Сохранить копию</button><button data-a="bload">Восстановить из копии</button>`; prepBackup();
   const r=e.currentTarget.getBoundingClientRect(); m.style.right=(innerWidth-r.right)+'px'; m.style.top=(r.bottom+8)+'px'; m.style.transformOrigin='top right';
-  m.onclick=ev=>{ const a=ev.target.dataset.a; closeCtx(); if(a==='add') $('#addBtn').click(); if(a==='auto'){ localStorage.removeItem('manualOrder'); render(); toast('Частые карты — наверху'); } };
+  m.onclick=ev=>{ const a=ev.target.dataset.a; closeCtx(); if(a==='add') $('#addBtn').click(); if(a==='auto'){ localStorage.removeItem('manualOrder'); render(); toast('Частые карты — наверху'); } if(a==='bsave') saveBackup(); if(a==='bload') $('#restoreIn').click(); };
   document.body.appendChild(m); const off=ev=>{ if(m.contains(ev.target)) return; document.removeEventListener('pointerdown',off,true); closeCtx(); }; setTimeout(()=>document.addEventListener('pointerdown',off,true),0); };
 
 /* ---------- open card ---------- */
@@ -182,7 +193,7 @@ function openCard(c){ cur=c; openedAt=Date.now(); haptic('light'); closeCtx();
   const el=els.get(c.id); el.classList.remove('shine'); void el.offsetWidth; el.classList.add('shine'); setTimeout(()=>burst(el),380);
   drawCode($('#vCode'),c); const n=prettyNum(c); $('#vNum').textContent=n; $('#numRow').classList.toggle('hidden',!n);
   const v=$('#viewer'); v.style.top = (want + cardH() + 18)+'px'; v.classList.remove('hidden');
-  c.uses=(c.uses||0)+1; c.last=Date.now(); save(c); setBright(true); try{tg&&tg.BackButton.show();}catch(e){} }
+  c.uses=(c.uses||0)+1; c.last=Date.now(); save(c).catch(()=>{}); try{ localStorage.setItem('mirror',JSON.stringify(cards)); }catch(e){} setBright(true); try{tg&&tg.BackButton.show();}catch(e){} }
 function closeViewer(){ if(!cur) return; cur=null; clearTimeout(retryT); document.body.classList.remove('is-open'); $('#viewer').classList.add('hidden'); setBright(false); syncBack(); layout(); }
 function setBright(on){ try{ if(tg && tg.isVersionAtLeast('8.0') && tg.setBrightness) tg.setBrightness(on?1:-1); }catch(e){} }
 document.addEventListener('click',e=>{ if(!cur||Date.now()-openedAt<400) return; if(e.target.closest('#viewer,.sheet-wrap,.ctx')) return;
@@ -198,11 +209,13 @@ if(tg&&tg.BackButton) tg.BackButton.onClick(()=>{ if(isShown('#confirm')) return
   document.addEventListener('pointercancel',()=>{ if(y0==null) return; y0=null; reset(); layout(); });
   document.addEventListener('pointerup',e=>{ if(y0==null) return; const dy=e.clientY-y0; y0=null; reset(); if(dy>70){ openedAt=0; closeViewer(); } else layout(); }); })();
 
-$('#copyBtn').onclick=async()=>{ try{await navigator.clipboard.writeText(String(cur.display||cur.number).replace(/\s/g,''));toast('Номер скопирован');}catch(e){toast('Не удалось скопировать');} };
+$('#copyBtn').onclick=async()=>{ const t=String(cur.display||cur.number).replace(/\s/g,'');
+  try{ await navigator.clipboard.writeText(t); toast('Номер скопирован'); return; }catch(e){}
+  try{ const ta=document.createElement('textarea'); ta.value=t; ta.setAttribute('readonly',''); ta.style.cssText='position:fixed;opacity:0;top:0'; document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0,t.length); const ok=document.execCommand('copy'); ta.remove(); toast(ok?'Номер скопирован':'Не удалось скопировать'); }catch(e){ toast('Не удалось скопировать'); } };
 $('#editBtn').onclick=()=>{ const c=cur; closeViewer(); openEditor(c); };
 $('#delBtn').onclick=()=>delCard(cur);
 async function delCard(c){ const ok = await confirmBox(`Удалить «${c.name}»?`); if(!ok) return;
-  await store.del('c_'+c.id); await photoPut(c.id,null); cards=cards.filter(x=>x.id!==c.id); closeViewer(); render(); toast('Карта удалена'); }
+  await store.del('c_'+c.id); await photoPut(c.id,null); cards=cards.filter(x=>x.id!==c.id); closeViewer(); render(); toast('Карта удалена'); offerBackup(); }
 function confirmBox(t){ return new Promise(r=>{ if(inTG && tg.showConfirm) tg.showConfirm(t,r); else r(confirm(t)); }); }
 
 /* ---------- add ---------- */
@@ -270,11 +283,11 @@ $('#form').onsubmit=async e=>{ e.preventDefault();
   let fmt=$('#fFmt').value, num=$('#fNum').value.trim();
   if(fmt==='EAN-13' && !/^\d{12,13}$/.test(num.replace(/\s/g,''))) fmt='Code128'; else if(fmt==='EAN-13') num=num.replace(/\s/g,'');
   const c = edit || {id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), order:cards.length, uses:0};
-  Object.assign(c,{name:$('#fName').value.trim(),number:num,format:fmt,color:draft.color,display:$('#fDisp').value.trim()||(/^\d{8,14}$/.test(num)?num:'')});
+  c.upd=Date.now(); Object.assign(c,{name:$('#fName').value.trim(),number:num,format:fmt,color:draft.color,display:$('#fDisp').value.trim()||(/^\d{8,14}$/.test(num)?num:'')});
   try{ await save(c); }catch(err){ $('#edMsg').textContent=err.message; return; }
   if(draft.photo){ await photoPut(c.id,draft.photo); photoURLs[c.id]=URL.createObjectURL(draft.photo); }
   if(!edit) cards.push(c);
-  closeSheet('#editor'); render(); haptic('success'); setTimeout(warmCodes,400); };
+  closeSheet('#editor'); render(); haptic('success'); setTimeout(warmCodes,400); offerBackup(); };
 
 /* misc */
 function haptic(t){ try{ const h=tg&&tg.HapticFeedback; if(!h) return; t==='success'?h.notificationOccurred('success'):h.impactOccurred(t); }catch(e){} }
@@ -373,3 +386,45 @@ function sheetSwipe(sel,onDismiss){ const w=$(sel), sh=w.querySelector('.sheet')
 }
 sheetSwipe('#addMenu',()=>closeSheet('#addMenu'));
 sheetSwipe('#editor',()=>requestCloseEditor());
+
+/* ---------- backup file «Карточки.json»: save to Files / restore ---------- */
+const BK_NAME='CardsForKitty.json';
+const blobToDataURL=b=>new Promise(r=>{ const f=new FileReader(); f.onload=()=>r(f.result); f.onerror=()=>r(null); f.readAsDataURL(b); });
+async function dataURLToBlob(u){ return (await fetch(u)).blob(); }
+async function buildBackup(){ const photos={};
+  for(const c of cards){ try{ const b=await photoGet(c.id); if(b&&b.size) photos[c.id]=await blobToDataURL(b); }catch(e){} }
+  const data={app:'kartochki',format:1,created:new Date().toISOString(),version:APP_V,cards:cards.map(c=>({...c})),photos,
+    settings:{manualOrder:localStorage.getItem('manualOrder')?1:0}};
+  return new File([JSON.stringify(data)],BK_NAME,{type:'application/json'}); }
+let bkFile=null, bkP=null;
+function prepBackup(){ bkFile=null; bkP=buildBackup().then(f=>bkFile=f).catch(()=>null); return bkP; }
+async function saveBackup(){ // called straight from a tap: share must start without long awaits (iOS gesture rule)
+  hideOffer(); let f=bkFile; if(!f){ await (bkP||prepBackup()); f=bkFile; } if(!f){ toast('Не получилось собрать копию'); return; }
+  try{ if(navigator.canShare && navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:'CardsForKitty'}); localStorage.setItem('bkAt',Date.now()); toast('Копия сохранена'); return; } }
+  catch(e){ if(e&&e.name==='AbortError') return; }
+  const u=URL.createObjectURL(f), l=document.createElement('a'); l.href=u; l.download=BK_NAME; document.body.appendChild(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(u),30000);
+  localStorage.setItem('bkAt',Date.now()); toast('Копия сохранена'); }
+function validBackup(d){ return d && d.app==='kartochki' && Array.isArray(d.cards) && d.cards.every(c=>c && typeof c.id==='string' && c.id && typeof c.name==='string' && c.number!=null && typeof c.format==='string' && String(c.number).length<=4096); }
+async function restoreFrom(file){
+  if(!file) return; if(file.size>30*1024*1024){ toast('Файл слишком большой'); return; }
+  let d=null; try{ d=JSON.parse(await file.text()); }catch(e){}
+  if(!validBackup(d)){ toast('Это не копия «Карточек»'); return; }
+  const byId=new Map(cards.map(c=>[c.id,c])); let add=0, upd=0;
+  const plan=d.cards.map(b=>{ const l=byId.get(b.id); if(!l){ add++; return b; } if((b.upd||0)>(l.upd||0)){ upd++; return b; } return null; }).filter(Boolean);
+  if(!plan.length){ toast('Всё уже есть — менять нечего'); return; }
+  const ok=await confirmBox(`Восстановить из копии: ${add} новых${upd?`, ${upd} обновить`:''}? Остальные карты останутся.`); if(!ok) return;
+  for(const b of plan){ const c={id:b.id,order:b.order??cards.length,uses:b.uses||0,name:b.name,number:String(b.number),format:b.format,color:/^#[0-9a-f]{6}$/i.test(b.color||'')?b.color:PALETTE[0],display:b.display||''};
+    if(b.pin) c.pin=true; if(b.upd) c.upd=b.upd; if(b.last) c.last=b.last;
+    try{ await save(c); }catch(e){ continue; }
+    const i=cards.findIndex(x=>x.id===c.id); if(i>=0) cards[i]=c; else cards.push(c);
+    const p=d.photos&&d.photos[c.id]; if(typeof p==='string'&&p.startsWith('data:image/')) try{ const bl=await dataURLToBlob(p); await photoPut(c.id,bl); photoURLs[c.id]=URL.createObjectURL(bl); }catch(e){} }
+  if(d.settings&&d.settings.manualOrder) localStorage.setItem('manualOrder','1');
+  localStorage.setItem('seeded','1'); render(); setTimeout(warmCodes,300); haptic('success'); toast(`Готово: ${add} новых${upd?`, ${upd} обновлено`:''}`); }
+$('#restoreIn').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; restoreFrom(f); };
+// gentle reminder after changes: at most once per 10 min, hides itself, never blocks
+let offerT=0;
+function offerBackup(){ if(inTG) return; const last=+localStorage.getItem('bkAsk')||0; if(Date.now()-last<10*60*1000) return;
+  localStorage.setItem('bkAsk',Date.now()); prepBackup(); const o=$('#bkOffer'); o.classList.add('on'); clearTimeout(offerT); offerT=setTimeout(hideOffer,7000); }
+function hideOffer(){ clearTimeout(offerT); $('#bkOffer').classList.remove('on'); }
+$('#bkOffer').addEventListener('click',e=>{ const b=e.target.closest('[data-b]'); if(!b) return; if(b.dataset.b==='save') saveBackup(); else hideOffer(); });
+window.__app.backup={buildBackup,restoreFrom,validBackup,photoPut,photoGet};
