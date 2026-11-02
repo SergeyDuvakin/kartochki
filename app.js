@@ -1,5 +1,5 @@
 'use strict';
-const APP_V = 11;
+const APP_V = 12;
 fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{ if(j.v>APP_V){ const u=new URL(location.href); if(u.searchParams.get('v')!==String(j.v)){ u.searchParams.set('v',j.v); location.replace(u.toString()); } } }).catch(()=>{});
 const tg = window.Telegram && Telegram.WebApp;
 const inTG = !!(tg && tg.initData);
