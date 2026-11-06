@@ -1,8 +1,8 @@
 // Карточки — offline cache. Bump VERSION with every release (matches version.json).
-const VERSION = 16;
+const VERSION = 17;
 const CACHE = 'kartochki-v' + VERSION;
-const SHELL = ['./', 'index.html', 'style.css?v=16', 'app.js?v=16', 'seed.js?v=16', 'version.json', 'manifest.webmanifest',
-  'icon-180.png', 'icon-192.png', 'icon-512.png', 'vendor/telegram-web-app.js?v=16', 'vendor/bwip-js-4.11.4.min.js'];
+const SHELL = ['./', 'index.html', 'style.css?v=17', 'app.js?v=17', 'seed.js?v=17', 'version.json', 'manifest.webmanifest',
+  'icon-180.png', 'icon-192.png', 'icon-512.png', 'vendor/telegram-web-app.js?v=17', 'vendor/bwip-js-4.11.4.min.js'];
 const LAZY = ['vendor/zxing-wasm-2.2.4-full.js', 'vendor/zxing_full.wasm']; // scanner: cached in background, not required to install
 
 self.addEventListener('install', e => {

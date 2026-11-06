@@ -1,5 +1,5 @@
 'use strict';
-const APP_V = 16;
+const APP_V = 17;
 fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{ if(j.v>APP_V){ const u=new URL(location.href); if(u.searchParams.get('v')!==String(j.v)){ u.searchParams.set('v',j.v); location.replace(u.toString()); } } }).catch(()=>{});
 const tg = window.Telegram && Telegram.WebApp;
 const inTG = !!(tg && tg.initData);
@@ -37,7 +37,8 @@ function pend(k,op){ const m=pendMap(); if(op) m[k]=op; else delete m[k]; try{ O
 async function flushPending(){ const m=pendMap(); for(const [k,op] of Object.entries(m)){
   if(op==='del') await store.del(k); else { const c=cards.find(x=>'c_'+x.id===k); if(c) await store.set(k,JSON.stringify(c)); else pend(k,null); } }
   return !Object.keys(pendMap()).length; }
-let dbp; function db(){ return dbp ||= new Promise((r,j)=>{const q=indexedDB.open('kartochki',1);q.onupgradeneeded=()=>q.result.createObjectStore('p');q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error);}); }
+let dbp; function db(){ return dbp ||= new Promise((r,j)=>{const q=indexedDB.open('kartochki',1);q.onupgradeneeded=()=>q.result.createObjectStore('p');q.onsuccess=()=>{ const d=q.result; d.onclose=()=>{ dbp=null; }; r(d); }; q.onerror=()=>{ dbp=null; j(q.error); }; }); }
+function resetStore(){ dbp=null; }
 function idbTx(d,fn){ return new Promise(r=>{ try{ const t=d.transaction('p','readwrite'); fn(t.objectStore('p')); t.oncomplete=()=>r(true); t.onerror=t.onabort=()=>r(false); }catch(e){ r(false); } }); }
 async function photoPut(id,blob){ try{ const d=await db(); // never hang: some WebViews refuse Blobs in IndexedDB -> store raw bytes instead
   if(!blob) return idbTx(d,s=>s.delete(id));
@@ -241,7 +242,7 @@ function closeViewer(){ if(!cur) return; cur=null; clearTimeout(retryT); documen
 function setBright(on){ try{ if(tg && tg.isVersionAtLeast('8.0') && tg.setBrightness) tg.setBrightness(on?1:-1); }catch(e){} }
 document.addEventListener('click',e=>{ if(!cur||Date.now()-openedAt<400) return; if(e.target.closest('#viewer,.sheet-wrap,.ctx')) return;
   if(e.target.closest('.card')||e.target===document.body||e.target.closest('.stack')||e.target===document.documentElement) closeViewer(); });
-if(tg&&tg.BackButton) tg.BackButton.onClick(()=>{ if(isShown('#confirm')) return answerConfirm('keep'); if(isShown('#crop')) return cancelCrop(); if(isShown('#art')) return requestCloseArt(); if(isShown('#editor')) return requestCloseEditor(); if(isShown('#addMenu')) return closeSheet('#addMenu'); closeViewer(); });
+if(tg&&tg.BackButton) tg.BackButton.onClick(()=>{ if(isShown('#confirm')) return answerConfirm('keep'); if(isShown('#crop')) return cancelCrop(); if(isShown('#look')) return closeLook(); if(isShown('#art')) return requestCloseArt(); if(isShown('#editor')) return requestCloseEditor(); if(isShown('#addMenu')) return closeSheet('#addMenu'); closeViewer(); });
 (()=>{ let y0=null, el=null; const V=()=>$('#viewer');
   const move=dy=>{ const t=`translate3d(0,${dy}px,0)`; el.style.transition='none'; el.style.transform=t; V().style.transition='none'; V().style.transform=t; };
   const reset=()=>{ el.style.transition=''; V().style.transition='transform .5s var(--spring)'; V().style.transform=''; };
@@ -674,6 +675,36 @@ $('#cropZoom').addEventListener('input', ()=>{
   const m=bgMetrics(cropNow, cropDim.w, cropDim.h); cropNow={s:m.s,x:m.x,y:m.y};
   const img=$('#cropImg'); img.style.width=m.wPct+'%'; img.style.height=m.hPct+'%'; img.style.left=m.leftPct+'%'; img.style.top=m.topPct+'%';
 });
+let lookMode='open';
+function lookSource(){ return artS||{mode:draft.artMode,color:draft.color,url:draft.artURL,crop:draft.artCrop,w:draft.artW,h:draft.artH,tone:draft.artTone}; }
+function lookFace(){ const s=lookSource(); const show=s.mode==='image'&&s.url; return faceOf({color:s.color,mode:show?'image':'color',url:show?s.url:'',crop:s.crop,w:s.w,h:s.h,tone:s.tone}); }
+function paintLookCode(canvas, c){
+  const bcid=(FORMATS.find(f=>f[0]===c.format)||[0,'code128'])[1];
+  const opts={bcid,text:String(c.number||'0'),scale:3,includetext:false,backgroundcolor:'FFFFFF'};
+  if(bcid==='pdf417') opts.scale=2; if(!['qrcode','datamatrix','azteccode','pdf417'].includes(bcid)) opts.height=18;
+  const sq=['qrcode','datamatrix','azteccode'].includes(bcid);
+  canvas.style.width=sq?'62%':'100%'; canvas.parentElement.classList.toggle('sq', sq);
+  const draw=()=>{ try{ bwipjs.toCanvas(canvas, opts); }catch(e){ try{ bwipjs.toCanvas(canvas,{...opts,bcid:'code128'}); }catch(_){} } };
+  if(window.bwipjs) draw(); else needBwip().then(()=>{ if(isShown('#look')&&lookMode==='open') draw(); }).catch(()=>{});
+}
+function paintLook(){
+  const v=lookFace();
+  mountCard($('#lookCard'), v); mountCard($('#lookStackCard'), v);
+  const n=prettyNum(v); $('#lookNum').textContent=n; $('#lookNumRow').classList.toggle('hidden', !n);
+  const open=lookMode==='open';
+  $('#lookOpenView').classList.toggle('hidden', !open); $('#lookStackView').classList.toggle('hidden', open);
+  $('#lookOpen').classList.toggle('on', open); $('#lookStack').classList.toggle('on', !open);
+  $('#lookOpen').setAttribute('aria-pressed', String(open)); $('#lookStack').setAttribute('aria-pressed', String(!open));
+  if(open) paintLookCode($('#lookCode'), v);
+}
+function openLook(){ lookMode='open'; paintLook(); openSheet('#look'); }
+function closeLook(){ return closeSheet('#look'); }
+function setLookMode(mode){ lookMode=mode; paintLook(); }
+$('#lookRow').onclick=()=>openLook();
+$('#lookBack').onclick=()=>closeLook();
+$('#look .backdrop').onclick=()=>closeLook();
+$('#lookOpen').onclick=()=>setLookMode('open');
+$('#lookStack').onclick=()=>setLookMode('stack');
 $('#artRow').onclick=()=>openArt();
 $('#artBack').onclick=()=>requestCloseArt();
 $('#artDone').onclick=()=>applyArt();
@@ -697,6 +728,7 @@ function releaseDraftURL(){
 }
 function closeEditor(instant){
   if(!$('#crop').classList.contains('hidden')) cancelCrop();
+  if(isShown('#look')) closeSheet('#look', true);
   if(artS) discardArt();
   releaseDraftURL();
   return closeSheet('#editor', instant);
@@ -821,6 +853,7 @@ function askSave(){ const c=$('#confirm'); c.classList.remove('hidden'); syncBac
 function answerConfirm(v){ $('#confirm').classList.add('hidden'); syncBack(); const r=confirmRes; confirmRes=null; r&&r(v); }
 $('#confirm').addEventListener('click',e=>{ const b=e.target.closest('[data-ans]'); if(b) answerConfirm(b.dataset.ans); else if(e.target.classList.contains('backdrop')) answerConfirm('keep'); });
 async function requestCloseEditor(){ if(document.activeElement) document.activeElement.blur();
+  if(isShown('#look')) return closeLook();
   if(isShown('#crop')||isShown('#art')) return;
   if(!isDirty()){ return closeEditor(); }
   springBack('#editor'); const a=await askSave();
@@ -852,8 +885,9 @@ function sheetSwipe(sel,onDismiss){ const w=$(sel), sh=w.querySelector('.sheet')
   sh.addEventListener('pointercancel',e=>{ if(e.pointerType==='touch') return; if(active){ active=false; y0=null; springBack(sel);} });
 }
 sheetSwipe('#addMenu',()=>closeSheet('#addMenu'));
-sheetSwipe('#editor',()=>{ if(isShown('#art')||isShown('#crop')||isShown('#confirm')) return; requestCloseEditor(); });
-sheetSwipe('#art',()=>{ if(isShown('#crop')||isShown('#confirm')) return; requestCloseArt(); });
+sheetSwipe('#editor',()=>{ if(isShown('#art')||isShown('#look')||isShown('#crop')||isShown('#confirm')) return; requestCloseEditor(); });
+sheetSwipe('#art',()=>{ if(isShown('#look')||isShown('#crop')||isShown('#confirm')) return; requestCloseArt(); });
+sheetSwipe('#look',()=>closeLook());
 
 /* ---------- backup file CardsForKitty.json: save to Files / restore ---------- */
 const BK_NAME='CardsForKitty.json';
@@ -933,4 +967,4 @@ $('#bkOffer').addEventListener('click',e=>{ const b=e.target.closest('[data-b]')
 window.__app.art={prepareArt,clampCrop,bgMetrics,bgStyle,panCrop,zoomCrop,jpegOrientation,jpegSize,ART_MAX,ART_EDGE,artMessage,
   session:()=>artS?{mode:artS.mode,rev:artS.rev,crop:artS.crop?{...artS.crop}:null,w:artS.w,h:artS.h,color:artS.color,bytes:artS.blob?artS.blob.size:0,tone:artS.tone}:null,
   draft:()=>({mode:draft.artMode,rev:draft.artRev,crop:draft.artCrop?{...draft.artCrop}:null,color:draft.color,bytes:draft.artBlob?draft.artBlob.size:0,touched:!!draft.artTouched,tone:draft.artTone})};
-window.__app.backup={buildBackup,restoreFrom,validBackup,photoPut,photoGet,dataHash,bgPut,bgGet};
+window.__app.backup={buildBackup,restoreFrom,validBackup,photoPut,photoGet,dataHash,bgPut,bgGet,resetStore};
