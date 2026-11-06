@@ -134,4 +134,53 @@ async function pointerSwipe(page, selector, dy) {
   }, { selector, dy });
 }
 
-module.exports = { boot, shot, makeJpeg, withExif, openManual, chooseFile, hidePill, touchSwipe, pointerSwipe, ART };
+async function makeBrightJpeg(page, w = 1200, h = 760) {
+  const bytes = await page.evaluate(async ({ w, h }) => {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const x = c.getContext('2d');
+    x.fillStyle = '#fff8ea';
+    x.fillRect(0, 0, w, h);
+    const g = x.createLinearGradient(0, h * 0.45, w, h);
+    g.addColorStop(0, '#fff3c4');
+    g.addColorStop(0.45, '#ffd56a');
+    g.addColorStop(1, '#ff7f8a');
+    x.fillStyle = g;
+    x.fillRect(0, Math.round(h * 0.45), w, h);
+    x.fillStyle = '#fff';
+    x.beginPath();
+    x.arc(w * 0.24, h * 0.68, Math.min(w, h) * 0.13, 0, Math.PI * 2);
+    x.fill();
+    x.fillStyle = '#c9842a';
+    x.fillRect(w * 0.44, h * 0.6, w * 0.38, h * 0.07);
+    x.fillStyle = '#fff';
+    x.fillRect(w * 0.44, h * 0.72, w * 0.24, h * 0.045);
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
+    return [...new Uint8Array(await blob.arrayBuffer())];
+  }, { w, h });
+  return Buffer.from(bytes);
+}
+
+async function makeDarkJpeg(page, w = 1200, h = 760) {
+  const bytes = await page.evaluate(async ({ w, h }) => {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const x = c.getContext('2d');
+    x.fillStyle = '#141a2e';
+    x.fillRect(0, 0, w, h);
+    const g = x.createLinearGradient(0, h * 0.5, w, h);
+    g.addColorStop(0, '#141a2e');
+    g.addColorStop(1, '#1f6f78');
+    x.fillStyle = g;
+    x.fillRect(0, Math.round(h * 0.5), w, h);
+    x.fillStyle = '#f2c14e';
+    x.beginPath();
+    x.arc(w * 0.72, h * 0.72, Math.min(w, h) * 0.1, 0, Math.PI * 2);
+    x.fill();
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
+    return [...new Uint8Array(await blob.arrayBuffer())];
+  }, { w, h });
+  return Buffer.from(bytes);
+}
+
+module.exports = { boot, shot, makeJpeg, makeBrightJpeg, makeDarkJpeg, withExif, openManual, chooseFile, hidePill, touchSwipe, pointerSwipe, ART };

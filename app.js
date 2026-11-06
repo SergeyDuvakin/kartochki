@@ -1,5 +1,5 @@
 'use strict';
-const APP_V = 17;
+const APP_V = 18;
 fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{ if(j.v>APP_V){ const u=new URL(location.href); if(u.searchParams.get('v')!==String(j.v)){ u.searchParams.set('v',j.v); location.replace(u.toString()); } } }).catch(()=>{});
 const tg = window.Telegram && Telegram.WebApp;
 const inTG = !!(tg && tg.initData);
@@ -106,7 +106,7 @@ function twinkles(id){ let h=hash(id), o=''; for(let i=0;i<3;i++){ h=Math.imul(h
 function initial(name){ const s=String(name||'').trim(); return s?[...s][0].toUpperCase():'•'; }
 function faceHTML(v, has){
   const name=esc(v.name||'');
-  const bg=has?`<div class="bgclip"><img class="bg" alt="" draggable="false" src="${v.url}" style="${bgStyle(v.crop,v.w,v.h)}"></div>`:'';
+  const bg=has?`<div class="bgclip"><img class="bg" alt="" draggable="false" src="${v.url}" style="${bgStyle(v.crop,v.w,v.h)}"></div><div class="edge" aria-hidden="true"></div>`:'';
   const head=has?`<div class="brand"><span class="logo">${esc(initial(v.name))}</span><div class="nm">${name}</div></div><i class="hole" aria-hidden="true"></i>`:`<div class="nm">${name}</div>`;
   return `${bg}<div class="sheen"></div>${twinkles(v.id||'x')}${head}${tailOf(v)}<div class="fmt">${esc(FMT_LABEL[v.format]||v.format||'')}</div>`;
 }
