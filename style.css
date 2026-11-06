@@ -229,14 +229,21 @@ body.loading .skeleton{display:block}
 .artdel{display:block;width:100%;margin-top:10px;background:#fff;border-radius:12px;height:48px;color:#ff3b30;font-size:17px}
 .artdel:active{background:var(--fill2)}
 .bgclip{position:absolute;inset:0;overflow:hidden;border-radius:inherit;pointer-events:none;z-index:0}
-.bgclip img,.bgclip::after{position:absolute}
-.bgclip img{max-width:none;user-select:none;-webkit-user-drag:none}
-.bgclip::after{content:"";inset:0;background:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,0) 34%);pointer-events:none}
+.bgclip img{position:absolute;max-width:none;user-select:none;-webkit-user-drag:none}
+.card.has-bg::before{background:none}
 .card.has-bg::after{opacity:.05}
-.card.has-bg .brand{position:relative;z-index:3;display:flex;align-items:center;gap:8px;max-width:calc(100% - 22px);padding:4px 10px 4px 4px;border-radius:18px;background:rgba(28,22,32,.42);color:#fff;backdrop-filter:blur(12px) saturate(1.2);-webkit-backdrop-filter:blur(12px) saturate(1.2)}
-.card.has-bg.dark .brand{background:rgba(255,255,255,.86);color:rgba(40,28,36,.92)}
-.card.has-bg .logo{width:28px;height:28px;border-radius:50%;background:#fff;color:var(--accent);display:grid;place-items:center;font-size:14px;font-weight:700;flex:none;box-shadow:0 0 0 .5px rgba(0,0,0,.06)}
-.card.has-bg .brand .nm{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-shadow:none;font-size:16px}
+.card.has-bg .edge{position:absolute;left:0;right:0;top:0;height:58px;z-index:1;pointer-events:none;
+  background:linear-gradient(180deg,rgba(36,20,40,.34) 0%,rgba(36,20,40,.12) 24%,rgba(36,20,40,.03) 58%,rgba(36,20,40,0) 100%)}
+.card.has-bg.dark .edge{background:linear-gradient(180deg,rgba(255,250,252,.5) 0%,rgba(255,250,252,.16) 28%,rgba(255,250,252,0) 100%)}
+.card.has-bg .brand{position:relative;z-index:3;display:flex;align-items:center;gap:8px;max-width:calc(100% - 22px);padding:0;border-radius:0;background:transparent;color:#fff;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+.card.has-bg.dark .brand{background:transparent;color:rgba(40,28,36,.92)}
+.card.has-bg .logo{width:28px;height:28px;border-radius:50%;background:#fff;color:var(--accent);display:grid;place-items:center;font-size:14px;font-weight:700;flex:none;box-shadow:0 1px 2px rgba(40,20,30,.16),0 0 0 .5px rgba(0,0,0,.06)}
+.card.has-bg .brand .nm{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(20,8,16,.3);font-size:16px}
+.card.has-bg.dark .brand .nm{text-shadow:0 1px 1px rgba(255,255,255,.72)}
+.card.has-bg.dimmed .bgclip img,.artthumb.dimmed img{filter:brightness(var(--dim-b,1)) saturate(var(--dim-s,1))}
+.dimmer{display:flex;align-items:center;gap:10px;min-height:44px;margin:8px 2px 0;max-width:100%;color:var(--fg2);font-size:15px;letter-spacing:-.01em}
+.dimmer label{flex:none}
+.dimmer input{flex:1;min-width:0;height:44px;margin:0;accent-color:var(--accent)}
 .hole{position:absolute;z-index:3;right:14px;top:14px;width:11px;height:11px;border-radius:50%;pointer-events:none;
   background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.7), rgba(255,255,255,.08) 40%, rgba(0,0,0,.28) 78%);
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.95), 0 0 0 1px rgba(0,0,0,.2)}

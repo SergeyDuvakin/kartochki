@@ -13,12 +13,12 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Карточки">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="apple-touch-icon" href="icon-180.png?v=17">
-<link rel="icon" type="image/png" href="icon-192.png?v=17">
-<script src="vendor/telegram-web-app.js?v=17"></script>
+<link rel="apple-touch-icon" href="icon-180.png?v=18">
+<link rel="icon" type="image/png" href="icon-192.png?v=18">
+<script src="vendor/telegram-web-app.js?v=18"></script>
 <script id="bwipJs" src="vendor/bwip-js-4.11.4.min.js" defer></script>
 
-<link rel="stylesheet" href="style.css?v=17">
+<link rel="stylesheet" href="style.css?v=18">
 </head>
 <body>
 <div id="fx" aria-hidden="true"></div>
@@ -126,6 +126,7 @@
           <button type="button" id="artCrop">Кадрировать</button>
         </div>
         <button type="button" id="artDel" class="artdel">Удалить картинку</button>
+        <div class="dimmer"><label for="artDimRange">Приглушение</label><input id="artDimRange" type="range" min="0" max="100" step="1" value="0" aria-label="Приглушение"></div>
       </div>
       <p id="artMsg" class="msg"></p>
       <input id="artFile" type="file" accept="image/*,.heic,.heif,image/heic,image/heif" hidden>
@@ -178,7 +179,7 @@
 <div id="toast" class="toast"></div>
 <div id="bkOffer" class="bkoffer" role="status"><span>Обновить копию в Файлах?</span><button data-b="save" class="strong">Сохранить</button><button data-b="later">Позже</button></div>
 <input id="restoreIn" type="file" accept=".json,application/json,text/plain,*/*" multiple hidden>
-<script src="seed.js?v=17"></script>
-<script src="app.js?v=17"></script>
+<script src="seed.js?v=18"></script>
+<script src="app.js?v=18"></script>
 </body>
 </html>
