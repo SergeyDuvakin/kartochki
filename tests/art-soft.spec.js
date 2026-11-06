@@ -1,124 +1,159 @@
 const { test, expect } = require('@playwright/test');
-const { boot, shot, makeBrightJpeg, makeDarkJpeg, openManual, chooseFile, hidePill } = require('./helpers');
+const fs = require('fs');
+const path = require('path');
+const { boot, hidePill } = require('./helpers');
 
-async function pickBright(page) {
-  const jpeg = await makeBrightJpeg(page);
-  await openManual(page, 'Свет');
-  await page.click('#artRow');
-  await page.click('#artModeImage');
-  await chooseFile(page, '#artPick', jpeg);
-  await page.locator('#crop:not(.hidden)').waitFor();
-  await page.click('#cropDone');
-  await expect(page.locator('#artTools')).toBeVisible();
-}
+const ART = '/opt/cursor/artifacts';
 
-function readScrim(el) {
-  const card = el.closest('.card');
-  const edge = card.querySelector('.edge');
-  const brand = card.querySelector('.brand');
-  const cr = card.getBoundingClientRect();
-  const er = edge.getBoundingClientRect();
-  const bs = getComputedStyle(brand);
-  const es = getComputedStyle(edge);
-  const ghosts = [...card.querySelectorAll('*')].filter(n => {
-    const box = n.getBoundingClientRect();
-    if (box.width < cr.width * 0.5 || box.bottom < cr.top + 2 || box.top > cr.top + 60) return false;
-    const s = getComputedStyle(n);
-    const solid = /rgba?\(\s*[\d.]+,\s*[\d.]+,\s*[\d.]+(?:,\s*([\d.]+))?\s*\)/.exec(s.backgroundColor);
-    const alpha = solid ? (solid[1] == null ? 1 : parseFloat(solid[1])) : 0;
-    return alpha > 0.45 && (s.backgroundImage === 'none' || !s.backgroundImage);
-  }).map(n => n.className || n.tagName);
-  return {
-    edgeH: er.height,
-    edgePastStrip: er.bottom - cr.top,
-    gradient: es.backgroundImage,
-    brandBg: bs.backgroundColor,
-    brandBlur: bs.backdropFilter || bs.getPropertyValue('-webkit-backdrop-filter') || 'none',
-    ghosts,
-    darkText: card.classList.contains('dark'),
-  };
-}
-
-test('a bright photo gets a short fading scrim, not a bar across the stack', async ({ page }) => {
-  await boot(page, { empty: true });
-  await pickBright(page);
-  await expect(page.locator('#art input[type="range"]')).toHaveCount(0);
-  await expect(page.locator('#art')).not.toContainText('Приглушение');
-  await expect(page.locator('#artPreview')).toHaveClass(/has-bg/);
-  await expect(page.locator('#artPreview')).toHaveClass(/dark/);
-  const preview = await page.locator('#artPreview').evaluate(readScrim);
-  expect(preview.edgeH).toBeGreaterThan(30);
-  expect(preview.edgeH).toBeLessThanOrEqual(60);
-  expect(preview.edgePastStrip).toBeLessThanOrEqual(60.5);
-  expect(preview.gradient).toContain('gradient');
-  expect(preview.gradient).toMatch(/,\s*0\)|transparent/);
-  expect(preview.gradient).toContain('255, 250, 252');
-  expect(preview.brandBg).toBe('rgba(0, 0, 0, 0)');
-  expect(preview.brandBlur).toBe('none');
-  expect(preview.ghosts).toEqual([]);
-  await expect(page.locator('#lookRow')).toBeVisible();
-  await expect(page.locator('#artReplace')).toBeVisible();
-  await expect(page.locator('#artCrop')).toBeVisible();
-  await expect(page.locator('#artDel')).toBeVisible();
-  await shot(page, 'bright-appearance');
-
-  const before = await page.evaluate(() => window.__app.cards().reduce((n, c) => n + (c.uses || 0), 0));
-  await page.click('#lookRow');
-  await page.locator('#look:not(.hidden)').waitFor();
-  await expect(page.locator('#lookCard .nm')).toHaveText('Свет');
-  await page.locator('#lookCard').scrollIntoViewIfNeeded();
-  await expect(page.locator('#lookCode')).toBeVisible();
-  const codeFilter = await page.locator('#lookCode').evaluate(el => getComputedStyle(el).filter);
-  expect(codeFilter).toBe('none');
-  const panel = await page.locator('#look .lookpanel').evaluate(el => getComputedStyle(el).backgroundColor);
-  expect(panel).toBe('rgb(255, 255, 255)');
-  await shot(page, 'bright-full', 400);
-  await page.click('#lookStack');
-  await expect(page.locator('#lookStackCard .edge')).toBeVisible();
-  await page.locator('#lookStackCard').scrollIntoViewIfNeeded();
-  const stacked = await page.locator('#lookStackCard').evaluate(readScrim);
-  expect(stacked.edgeH).toBeLessThanOrEqual(60);
-  expect(stacked.ghosts).toEqual([]);
-  await shot(page, 'bright-look-stack', 300);
-  await page.click('#lookBack');
-  expect(await page.evaluate(() => window.__app.cards().reduce((n, c) => n + (c.uses || 0), 0))).toBe(before);
-
-  await page.click('#artDone');
-  await page.locator('#form button[type="submit"]').click();
-  await expect(page.locator('#editor')).toBeHidden();
-  await hidePill(page);
-  await openManual(page, 'Рядом');
-  await page.locator('#form button[type="submit"]').click();
-  await expect(page.locator('#editor')).toBeHidden();
-  await expect(page.locator('#bkOffer.on')).toBeVisible();
-  await hidePill(page);
-  await expect(page.locator('#bkOffer.on')).toHaveCount(0);
-  await shot(page, 'bright-stack', 600);
-  const home = await page.locator('#stack .card', { hasText: 'Свет' }).evaluate(readScrim);
-  expect(home.darkText).toBe(true);
-  expect(home.edgePastStrip).toBeLessThanOrEqual(60.5);
-  expect(home.ghosts).toEqual([]);
-  await expect(page.locator('#stack .card', { hasText: 'Рядом' }).locator('.edge')).toHaveCount(0);
-  await expect(page.locator('#stack .card', { hasText: 'Рядом' }).locator('.brand')).toHaveCount(0);
-
-  const dark = await makeDarkJpeg(page);
-  await page.evaluate(async (bytes) => {
-    const prep = await window.__app.art.prepareArt(new File([new Uint8Array(bytes)], 'dark.jpg', { type: 'image/jpeg' }));
-    const id = 'dark1';
-    await window.__app.backup.bgPut(id, prep.blob);
+async function paintWallet(page) {
+  await page.evaluate(async () => {
+    const W = 900, H = 568;
+    const ellipse = (x, cx, cy, rx, ry, color) => { x.fillStyle = color; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); x.fill(); };
+    const paints = {
+      sky(x, w, h) {
+        const g = x.createLinearGradient(0, 0, 0, h);
+        g.addColorStop(0, '#b9e0ff'); g.addColorStop(.4, '#eaf6ff'); g.addColorStop(1, '#8ec8ef');
+        x.fillStyle = g; x.fillRect(0, 0, w, h);
+        ellipse(x, w * .25, h * .16, w * .22, h * .08, 'rgba(255,255,255,.92)');
+        ellipse(x, w * .62, h * .12, w * .2, h * .07, 'rgba(255,255,255,.88)');
+      },
+      warm(x, w, h) {
+        x.fillStyle = '#e25822'; x.fillRect(0, 0, w, h);
+        const g = x.createLinearGradient(0, 0, w, h);
+        g.addColorStop(0, '#ffb03a'); g.addColorStop(1, '#c62828');
+        x.fillStyle = g; x.fillRect(0, 0, w, h);
+        ellipse(x, w * .7, h * .28, w * .14, w * .14, '#ffe08a');
+      },
+      pale(x, w, h) {
+        x.fillStyle = '#f7f1e8'; x.fillRect(0, 0, w, h);
+        ellipse(x, w * .55, h * .55, w * .2, h * .26, 'rgba(214,186,156,.6)');
+      },
+      psy(x, w, h) {
+        x.fillStyle = '#1b1030'; x.fillRect(0, 0, w, h);
+        const colors = ['#ff4fa3', '#44e0d0', '#ffe14a', '#7aa2ff'];
+        for (let i = 0; i < 12; i++) {
+          x.strokeStyle = colors[i % colors.length]; x.lineWidth = 8;
+          x.beginPath();
+          for (let px = 0; px <= w; px += 16) {
+            const y = h * (0.08 + (i % 5) * 0.16) + Math.sin(px / 60 + i) * 22;
+            px ? x.lineTo(px, y) : x.moveTo(px, y);
+          }
+          x.stroke();
+        }
+      },
+      desert(x, w, h) {
+        x.fillStyle = '#08343c'; x.fillRect(0, 0, w, h * .42);
+        x.fillStyle = '#d7f2ff';
+        x.beginPath(); x.moveTo(0, 0); x.lineTo(w * .5, 0); x.quadraticCurveTo(w * .32, h * .2, w * .46, h * .42); x.lineTo(0, h * .42); x.fill();
+        ellipse(x, w * .22, h * .1, w * .12, h * .05, '#fff');
+        ellipse(x, w * .72, h * .18, 30, 30, '#d81b60');
+        const g = x.createLinearGradient(0, h * .4, 0, h);
+        g.addColorStop(0, '#f3c56a'); g.addColorStop(1, '#c4552a');
+        x.fillStyle = g; x.fillRect(0, h * .4, w, h);
+      },
+    };
+    const cards = [
+      ['sky', 'Дикси', '1001', 0],
+      ['warm', 'АШАН', '1002', 1],
+      ['pale', 'Перекрёсток', '1003', 3],
+      ['psy', 'METRO', '1004', 4],
+      ['desert', 'SPAR', '1005', 5],
+    ];
+    let i = 0;
+    for (const [kind, name, num, order] of cards) {
+      const c = document.createElement('canvas'); c.width = W; c.height = H;
+      paints[kind](c.getContext('2d'), W, H);
+      const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
+      const prep = await window.__app.art.prepareArt(new File([blob], kind + '.jpg', { type: 'image/jpeg' }));
+      const id = 'abs' + i;
+      await window.__app.backup.bgPut(id, prep.blob);
+      window.__app.cards().push({
+        id, name, number: num, format: 'EAN-13', color: '#f9c5d5', order, uses: 0, upd: 10 + order,
+        bg: 1, crop: prep.crop, bw: prep.w, bh: prep.h, tone: prep.tone, display: '4601234567890',
+      });
+      i++;
+    }
     window.__app.cards().push({
-      id, name: 'Тень', number: '999', format: 'Code128', color: '#243044', order: 5, uses: 0, upd: 1,
-      bg: 1, crop: prep.crop, bw: prep.w, bh: prep.h, tone: prep.tone, display: '',
+      id: 'plain', name: 'Цветная', number: '1006', format: 'Code128', color: '#f4a7b9', order: 2, uses: 0, display: '',
     });
     document.querySelector('#search').dispatchEvent(new Event('input'));
-  }, [...dark]);
-  await expect(page.locator('#stack .card', { hasText: 'Тень' })).toHaveClass(/has-bg/, { timeout: 8000 });
-  const tone = await page.locator('#stack .card', { hasText: 'Тень' }).evaluate(el => ({
-    darkText: el.classList.contains('dark'),
-    tone: (window.__app.cards().find(c => c.name === 'Тень') || {}).tone,
-    gradient: getComputedStyle(el.querySelector('.edge')).backgroundImage,
-  }));
-  expect(tone.tone).toBe('dark');
-  expect(tone.darkText).toBe(false);
-  expect(tone.gradient).toContain('36, 20, 40');
+  });
+  await page.waitForFunction(() => document.querySelectorAll('#stack img.bg').length >= 5);
+}
+
+test('compact light chip and thin rim stay readable on every photo', async ({ page }, info) => {
+  await boot(page, { empty: true });
+  await paintWallet(page);
+  await expect(page.locator('#stack .card.has-bg')).toHaveCount(5);
+  await expect(page.locator('#stack .card', { hasText: 'Цветная' }).locator('.brand')).toHaveCount(0);
+  await expect(page.locator('#stack .edge, #artDimRange')).toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText('Приглушение');
+
+  const metrics = await page.locator('#stack .card', { hasText: 'SPAR' }).evaluate(el => {
+    const card = el.getBoundingClientRect();
+    const brand = el.querySelector('.brand').getBoundingClientRect();
+    const logo = el.querySelector('.logo').getBoundingClientRect();
+    const hole = el.querySelector('.hole').getBoundingClientRect();
+    const nm = getComputedStyle(el.querySelector('.nm'));
+    const bs = getComputedStyle(el.querySelector('.brand'));
+    const shadow = getComputedStyle(el).boxShadow;
+    return {
+      brandW: brand.width, cardW: card.width, brandH: brand.height,
+      logo: logo.width, font: parseFloat(nm.fontSize),
+      color: bs.color, bg: bs.backgroundColor, blur: bs.backdropFilter || 'none',
+      gap: hole.left - brand.right, shadow,
+    };
+  });
+  expect(metrics.brandW).toBeLessThan(metrics.cardW * 0.62);
+  expect(metrics.brandH).toBeLessThanOrEqual(32);
+  expect(metrics.logo).toBeLessThanOrEqual(24);
+  expect(metrics.font).toBeLessThanOrEqual(14);
+  expect(metrics.color).toContain('40');
+  expect(metrics.bg).toContain('255');
+  expect(metrics.blur).toBe('none');
+  expect(metrics.gap).toBeGreaterThan(6);
+  expect(metrics.shadow).toMatch(/255,\s*255,\s*255/);
+
+  const tones = await page.locator('#stack .card.has-bg .brand').evaluateAll(nodes => nodes.map(n => getComputedStyle(n).color));
+  expect(new Set(tones).size).toBe(1);
+
+  const long = await page.evaluate(() => {
+    const c = window.__app.cards().find(x => x.name === 'Перекрёсток');
+    c.name = 'Золотое яблоко и очень длинное название';
+    document.querySelector('#search').dispatchEvent(new Event('input'));
+    return true;
+  });
+  expect(long).toBe(true);
+  await page.setViewportSize({ width: 320, height: 700 });
+  const clipped = await page.locator('#stack .card', { hasText: 'Золотое' }).evaluate(el => {
+    const brand = el.querySelector('.brand').getBoundingClientRect();
+    const hole = el.querySelector('.hole').getBoundingClientRect();
+    const nm = el.querySelector('.nm');
+    return { gap: hole.left - brand.right, overflow: nm.scrollWidth > nm.clientWidth + 1, text: nm.textContent };
+  });
+  expect(clipped.gap).toBeGreaterThan(4);
+  expect(clipped.overflow).toBe(true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => {
+    const c = window.__app.cards().find(x => x.number === '1003');
+    c.name = 'Перекрёсток';
+    document.querySelector('#search').dispatchEvent(new Event('input'));
+  });
+  await page.waitForFunction(() => document.querySelectorAll('#stack img.bg').length >= 5);
+
+  await hidePill(page);
+  if (info.project.name === 'chromium') {
+    fs.mkdirSync(ART, { recursive: true });
+    await page.screenshot({ path: path.join(ART, 'v19-stack.png') });
+  }
+
+  await page.locator('#stack .card', { hasText: 'SPAR' }).click();
+  await page.locator('#viewer:not(.hidden)').waitFor();
+  await page.waitForFunction(() => document.querySelector('#vCode').width > 8);
+  const open = await page.locator('#viewer .panel').evaluate(el => getComputedStyle(el).backgroundColor);
+  expect(open).toBe('rgb(255, 255, 255)');
+  await expect(page.locator('#stack .card', { hasText: 'SPAR' }).locator('.brand')).toBeVisible();
+  if (info.project.name === 'chromium') {
+    await page.screenshot({ path: path.join(ART, 'v19-open.png') });
+  }
 });
