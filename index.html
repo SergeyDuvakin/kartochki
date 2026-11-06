@@ -13,12 +13,12 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Карточки">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="apple-touch-icon" href="icon-180.png?v=15">
-<link rel="icon" type="image/png" href="icon-192.png?v=15">
-<script src="vendor/telegram-web-app.js?v=15"></script>
+<link rel="apple-touch-icon" href="icon-180.png?v=17">
+<link rel="icon" type="image/png" href="icon-192.png?v=17">
+<script src="vendor/telegram-web-app.js?v=17"></script>
 <script id="bwipJs" src="vendor/bwip-js-4.11.4.min.js" defer></script>
 
-<link rel="stylesheet" href="style.css?v=15">
+<link rel="stylesheet" href="style.css?v=17">
 </head>
 <body>
 <div id="fx" aria-hidden="true"></div>
@@ -95,10 +95,74 @@
       <label><span>Формат</span><select id="fFmt"></select></label>
     </div>
     <datalist id="shops"></datalist>
-    <p class="caption">Цвет</p>
-    <div class="colors" id="colors"></div>
+    <div class="group artgroup">
+      <button type="button" id="artRow" class="artrow" aria-label="Оформление, Цвет">
+        <span id="artThumb" class="artthumb" aria-hidden="true"></span>
+        <span class="artlab">Оформление</span>
+        <span id="artVal" class="artval">Цвет</span>
+        <em aria-hidden="true">›</em>
+      </button>
+    </div>
     <p id="edMsg" class="msg"></p>
   </form>
+</div>
+<div id="art" class="sheet-wrap hidden">
+  <div class="backdrop"></div>
+  <div class="sheet art-sheet">
+    <div class="grabber"></div>
+    <div class="formhead"><button type="button" id="artBack" class="text">Назад</button><h3>Оформление</h3><button type="button" id="artDone" class="text strong">Готово</button></div>
+    <div id="artPreview" class="card mini"></div>
+    <button type="button" id="lookRow" class="lookrow">Посмотреть карточку<em aria-hidden="true">›</em></button>
+    <div class="seg" role="tablist" aria-label="Оформление">
+      <button type="button" id="artModeColor" role="tab" aria-pressed="true">Цвет</button>
+      <button type="button" id="artModeImage" role="tab" aria-pressed="false">Картинка</button>
+    </div>
+    <div id="artColors" class="colors"></div>
+    <div id="artImage" class="hidden">
+      <button type="button" id="artPick" class="primary wide">Выбрать фото</button>
+      <div id="artTools" class="hidden">
+        <div class="group artacts">
+          <button type="button" id="artReplace">Заменить</button>
+          <button type="button" id="artCrop">Кадрировать</button>
+        </div>
+        <button type="button" id="artDel" class="artdel">Удалить картинку</button>
+      </div>
+      <p id="artMsg" class="msg"></p>
+      <input id="artFile" type="file" accept="image/*,.heic,.heif,image/heic,image/heif" hidden>
+    </div>
+  </div>
+</div>
+<div id="look" class="sheet-wrap hidden">
+  <div class="backdrop"></div>
+  <div class="sheet look-sheet">
+    <div class="grabber"></div>
+    <div class="formhead"><button type="button" id="lookBack" class="text">Назад</button><h3>Карточка</h3><span></span></div>
+    <div class="seg" role="tablist" aria-label="Как смотреть">
+      <button type="button" id="lookOpen" role="tab" aria-pressed="true">Открытая</button>
+      <button type="button" id="lookStack" role="tab" aria-pressed="false">В стопке</button>
+    </div>
+    <div id="lookOpenView">
+      <div id="lookCard" class="card lookcard"></div>
+      <div class="panel lookpanel">
+        <div class="codebox"><canvas id="lookCode"></canvas></div>
+        <div id="lookNumRow" class="numrow"><span id="lookNum"></span></div>
+      </div>
+    </div>
+    <div id="lookStackView" class="lookstack hidden">
+      <i class="peek a" aria-hidden="true"></i>
+      <i class="peek b" aria-hidden="true"></i>
+      <div id="lookStackCard" class="card lookcard"></div>
+    </div>
+  </div>
+</div>
+<div id="crop" class="crop hidden" role="dialog" aria-modal="true" aria-label="Кадрирование">
+  <div class="cropbar">
+    <button type="button" id="cropCancel" class="text">Отмена</button>
+    <h3 id="cropTitle">Кадрирование</h3>
+    <button type="button" id="cropDone" class="text strong">Готово</button>
+  </div>
+  <div id="cropStage" class="cropstage"><div id="cropFrame" class="cropframe"><img id="cropImg" alt="" draggable="false"></div></div>
+  <div class="cropscale"><span>Масштаб</span><input id="cropZoom" type="range" min="1" max="4" step="0.01" value="1" aria-label="Масштаб"><button type="button" id="cropReset" class="text">Сброс</button></div>
 </div>
 <div id="confirm" class="confirm hidden" role="dialog" aria-modal="true">
   <div class="backdrop"></div>
@@ -114,7 +178,7 @@
 <div id="toast" class="toast"></div>
 <div id="bkOffer" class="bkoffer" role="status"><span>Обновить копию в Файлах?</span><button data-b="save" class="strong">Сохранить</button><button data-b="later">Позже</button></div>
 <input id="restoreIn" type="file" accept=".json,application/json,text/plain,*/*" multiple hidden>
-<script src="seed.js?v=15"></script>
-<script src="app.js?v=15"></script>
+<script src="seed.js?v=17"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>
