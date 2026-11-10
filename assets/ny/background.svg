@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 800" width="400" height="800" preserveAspectRatio="xMidYMid slice" aria-label="Праздничный фон">
+  <defs>
+    <linearGradient id="bg-base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#EAF1F7"/>
+      <stop offset="0.34" stop-color="#F7F4F6"/>
+      <stop offset="1" stop-color="#F6EFEF"/>
+    </linearGradient>
+    <radialGradient id="bg-frost" cx="50%" cy="-5%" r="72%">
+      <stop offset="0" stop-color="#D9E8F4" stop-opacity="0.85"/>
+      <stop offset="0.45" stop-color="#E4EEF6" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#E4EEF6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bg-warm" cx="78%" cy="24%" r="48%">
+      <stop offset="0" stop-color="#F8DCC4" stop-opacity="0.5"/>
+      <stop offset="0.55" stop-color="#F3D0D6" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#F3D0D6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bg-blush" cx="16%" cy="6%" r="36%">
+      <stop offset="0" stop-color="#F6DCE6" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#F6DCE6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="400" height="800" fill="url(#bg-base)"/>
+  <rect width="400" height="800" fill="url(#bg-frost)"/>
+  <rect width="400" height="800" fill="url(#bg-blush)"/>
+  <rect width="400" height="800" fill="url(#bg-warm)"/>
+</svg>

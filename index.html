@@ -13,12 +13,12 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Карточки">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="apple-touch-icon" href="icon-180.png?v=19">
-<link rel="icon" type="image/png" href="icon-192.png?v=19">
-<script src="vendor/telegram-web-app.js?v=19"></script>
+<link rel="apple-touch-icon" href="icon-180.png?v=20">
+<link rel="icon" type="image/png" href="icon-192.png?v=20">
+<script src="vendor/telegram-web-app.js?v=20"></script>
 <script id="bwipJs" src="vendor/bwip-js-4.11.4.min.js" defer></script>
 
-<link rel="stylesheet" href="style.css?v=19">
+<link rel="stylesheet" href="style.css?v=20">
 </head>
 <body>
 <div id="fx" aria-hidden="true"></div>
@@ -26,7 +26,7 @@
 <div id="scroller" class="scroller"><div class="inner">
 <header class="top">
   <div class="titlebar">
-    <h1>Карточки</h1>
+    <h1>Карточки<img class="header-flake" alt="" src="assets/ny/header-snowflake.svg?v=20"><img class="title-snow" alt="" src="assets/ny/title-snow-thin.svg?v=20"></h1>
     <div class="tools">
       <button id="addBtn" class="pill one" aria-label="Добавить карту"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
       <div class="pill two">
@@ -35,6 +35,7 @@
       </div>
     </div>
   </div>
+  <div class="garland" aria-hidden="true"><img class="g-bright" alt="" src="assets/ny/garland-bright.svg?v=20"><img class="g-dim" alt="" src="assets/ny/garland-dim.svg?v=20"></div>
   <div id="searchBar" class="searchbar">
     <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><input id="search" type="search" placeholder="Поиск" autocomplete="off"></label>
     <button id="searchCancel" class="text">Отменить</button>
@@ -178,7 +179,7 @@
 <div id="toast" class="toast"></div>
 <div id="bkOffer" class="bkoffer" role="status"><span>Обновить копию в Файлах?</span><button data-b="save" class="strong">Сохранить</button><button data-b="later">Позже</button></div>
 <input id="restoreIn" type="file" accept=".json,application/json,text/plain,*/*" multiple hidden>
-<script src="seed.js?v=19"></script>
-<script src="app.js?v=19"></script>
+<script src="seed.js?v=20"></script>
+<script src="app.js?v=20"></script>
 </body>
 </html>

@@ -270,3 +270,26 @@ body.loading .skeleton{display:block}
 .bkoffer.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 .bkoffer button{color:#fff;font-size:14px;padding:7px 11px;border-radius:99px;opacity:.75}
 .bkoffer button.strong{opacity:1;font-weight:600;background:rgba(255,255,255,.16)}
+
+/* «Праздник»: Dec 15–Jan 15, or NY_FORCE. Assets live in assets/ny/. */
+.header-flake,.title-snow,.garland{display:none}
+html.ny body{background:#f7f4f6 url("assets/ny/background.svg?v=20") center/cover no-repeat}
+html.ny h1{position:relative}
+html.ny .header-flake{display:inline-block;width:18px;height:18px;margin-left:6px;vertical-align:8px}
+html.ny .title-snow{display:block;position:absolute;left:0;width:88%;height:8px;bottom:calc(100% - 1px);pointer-events:none}
+html.ny .garland{display:block;position:relative;width:calc(100% + 12px);margin:-2px 0 2px -6px;aspect-ratio:600/52;pointer-events:none}
+html.ny .garland img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill}
+html.ny .garland .g-dim{animation:garland 5.6s ease-in-out infinite}
+@keyframes garland{0%,100%{opacity:0}50%{opacity:1}}
+html.ny .stack{margin-top:34px}
+html.ny .card{overflow:visible}
+html.ny .snowcap{position:absolute;left:0;width:100%;height:auto;aspect-ratio:340/46;top:0;transform:translateY(-56.5%);z-index:2;pointer-events:none;
+  -webkit-mask-image:radial-gradient(circle 13px at calc(100% - 19px) calc(56.5% + 20px), transparent 11px, #000 13px);
+  mask-image:radial-gradient(circle 13px at calc(100% - 19px) calc(56.5% + 20px), transparent 11px, #000 13px)}
+html.ny .card .nm,html.ny .card .brand,html.ny .hole,html.ny .fmt,html.ny .tail{z-index:6}
+html.ny .card img.tw{background:none;filter:none;object-fit:contain}
+html.ny .flake{position:absolute;left:0;top:0;pointer-events:none;will-change:transform}
+@media (prefers-reduced-motion:reduce){
+  html.ny .garland .g-dim{animation:none;opacity:0}
+  html.ny .flake,html.ny .tw,html.ny .ny-spark{animation:none}
+}

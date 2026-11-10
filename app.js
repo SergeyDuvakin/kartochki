@@ -1,5 +1,10 @@
 'use strict';
-const APP_V = 19;
+const APP_V = 20;
+// Review build: «Праздник» stays on. Set NY_FORCE to false to follow the device date only (15 Dec–15 Jan, inclusive).
+const NY_FORCE = true;
+function nyInSeason(date){ const m=date.getMonth(), d=date.getDate(); return (m===11 && d>=15) || (m===0 && d<=15); }
+const NY = NY_FORCE || nyInSeason(new Date());
+if(NY) document.documentElement.classList.add('ny');
 fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{ if(j.v>APP_V){ const u=new URL(location.href); if(u.searchParams.get('v')!==String(j.v)){ u.searchParams.set('v',j.v); location.replace(u.toString()); } } }).catch(()=>{});
 const tg = window.Telegram && Telegram.WebApp;
 const inTG = !!(tg && tg.initData);
@@ -100,15 +105,22 @@ for(const ev of ['pointerup','pointercancel']) document.addEventListener(ev,e=>{
 function cardW(){ return $('#stack').clientWidth; }
 function cardH(){ return Math.round(($('.top').clientWidth||cardW())/1.586); }
 function hash(s){ let h=2166136261; for(const ch of String(s)) h=Math.imul(h^ch.charCodeAt(0),16777619); return h>>>0; }
-function twinkles(id){ let h=hash(id), o=''; for(let i=0;i<3;i++){ h=Math.imul(h^(h>>>15),2246822507)>>>0;
+function twinkles(id){ let h=hash(id), o='';
+  if(NY){ const kind=['sparkle-white','sparkle-gold'];
+    for(let i=0;i<2;i++){ h=Math.imul(h^(h>>>15),2246822507)>>>0;
+      const x=24+h%52, y=46+(h>>>8)%36, s=8+(h>>>16)%4, d=8+(h>>>20)%3, dl=1+(h>>>24)%10;
+      o+=`<img class="tw ny-spark" alt="" draggable="false" src="assets/ny/${kind[i]}.svg?v=20" style="left:${x}%;top:${y}%;--s:${s}px;--d:${d}s;--dl:${dl}s">`; }
+    return o; }
+  for(let i=0;i<3;i++){ h=Math.imul(h^(h>>>15),2246822507)>>>0;
   const x=8+h%84, y=12+(h>>>8)%70, s=5+(h>>>16)%5, d=4+(h>>>20)%4, dl=(h>>>24)%50/10;
   o+=`<i class="tw" style="left:${x}%;top:${y}%;--s:${s}px;--d:${d}s;--dl:${dl}s"></i>`; } return o; }
+function snowCap(id){ if(!NY) return ''; const k='abcd'[hash(id||'x')%4]; return `<img class="snowcap" alt="" draggable="false" src="assets/ny/snow-cap-${k}.svg?v=20">`; }
 function initial(name){ const s=String(name||'').trim(); return s?[...s][0].toUpperCase():'•'; }
 function faceHTML(v, has){
   const name=esc(v.name||'');
   const bg=has?`<div class="bgclip"><img class="bg" alt="" draggable="false" src="${v.url}" style="${bgStyle(v.crop,v.w,v.h)}"></div>`:'';
   const head=has?`<div class="brand"><span class="logo">${esc(initial(v.name))}</span><div class="nm">${name}</div></div><i class="hole" aria-hidden="true"></i>`:`<div class="nm">${name}</div>`;
-  return `${bg}<div class="sheen"></div>${twinkles(v.id||'x')}${head}${tailOf(v)}<div class="fmt">${esc(FMT_LABEL[v.format]||v.format||'')}</div>`;
+  return `${bg}${snowCap(v.id)}${twinkles(v.id||'x')}<div class="sheen"></div>${head}${tailOf(v)}<div class="fmt">${esc(FMT_LABEL[v.format]||v.format||'')}</div>`;
 }
 function mountCard(el, v){
   const has=!!(v.mode==='image' && v.url), color=v.color||PALETTE[0];
@@ -779,7 +791,7 @@ $('#form').onsubmit=async e=>{ e.preventDefault();
 /* misc */
 function haptic(t){ try{ const h=tg&&tg.HapticFeedback; if(!h) return; t==='success'?h.notificationOccurred('success'):h.impactOccurred(t); }catch(e){} }
 let tt; function toast(t){ const e=$('#toast'); e.textContent=t; e.classList.add('on'); clearTimeout(tt); tt=setTimeout(()=>e.classList.remove('on'),1800); }
-window.__app={decode,cards:()=>cards};
+window.__app={decode,cards:()=>cards,ny:{force:NY_FORCE,on:NY,inSeason:nyInSeason}};
 boot(); reconcile().catch(e=>{ console.warn(e); document.body.classList.remove('loading'); render(); }).finally(()=>{ const w=()=>needBwip().then(()=>setTimeout(warmCodes,300)).catch(()=>{}); document.readyState==='complete'?w():addEventListener('load',w,{once:true}); });
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1')) try{ navigator.serviceWorker.register('sw.js',{scope:'./',updateViaCache:'none'}).then(r=>r.update&&r.update()).catch(()=>{}); navigator.storage&&navigator.storage.persist&&navigator.storage.persist().catch(()=>{}); }catch(e){}
 
@@ -814,8 +826,27 @@ function bubbles(FX,N,local){
   if(run) requestAnimationFrame(tick);
   document.addEventListener('visibilitychange',()=>{ const was=run; run=!RM&&!document.hidden; if(run&&!was){ last=performance.now(); requestAnimationFrame(tick);} });
 }
-bubbles($('#fx'),10,false);
-document.querySelectorAll('.sheet').forEach(sh=>{ const f=document.createElement('div'); f.className='fx-local'; f.setAttribute('aria-hidden','true'); sh.prepend(f); bubbles(f,4,true); });
+const FLAKES=['snowflake-1','snowflake-2','snowflake-3','snowflake-4','flake-dot','flake-dot'];
+function snowFall(FX,N){
+  const bs=[];
+  for(let i=0;i<N;i++){ const e=document.createElement('img'); e.className='flake'; e.alt=''; e.draggable=false;
+    e.src='assets/ny/'+FLAKES[i%FLAKES.length]+'.svg?v=20';
+    const s=11+(i*5)%14; e.style.width=e.style.height=s+'px'; FX.appendChild(e);
+    bs.push({e,s,x:((i*97)%100)/100*(Math.max(FX.clientWidth,innerWidth)||360), y:((i*53)%120)/100*((FX.clientHeight||innerHeight)||700), v:7+(i%4)*2.2, ph:i, amp:8+(i%3)*4, sw:3200+i*180}); }
+  const W=()=>FX.clientWidth||innerWidth, H=()=>FX.clientHeight||innerHeight;
+  function place(b,t){ b.e.style.transform=`translate3d(${b.x+Math.sin(t/b.sw+b.ph)*b.amp}px,${b.y}px,0) rotate(${Math.sin(t/1400+b.ph)*18}deg)`; }
+  let last=performance.now(), run=!RM && !document.hidden;
+  function tick(t){ const dt=Math.min(.05,(t-last)/1000); last=t;
+    if(FX.offsetParent!==null || FX===document.getElementById('fx')){ const h=H(), w=W();
+      for(const b of bs){ b.y+=b.v*dt; if(b.y>h+8){ b.y=-b.s; b.x=Math.random()*Math.max(1,w-b.s); } place(b,t); } }
+    if(run) requestAnimationFrame(tick); }
+  bs.forEach(b=>place(b,0));
+  if(run) requestAnimationFrame(tick);
+  document.addEventListener('visibilitychange',()=>{ const was=run; run=!RM&&!document.hidden; if(run&&!was){ last=performance.now(); requestAnimationFrame(tick);} });
+}
+if(NY) snowFall($('#fx'),11);
+else { bubbles($('#fx'),10,false);
+  document.querySelectorAll('.sheet').forEach(sh=>{ const f=document.createElement('div'); f.className='fx-local'; f.setAttribute('aria-hidden','true'); sh.prepend(f); bubbles(f,4,true); }); }
 
 /* Wallet-style elastic pull: no container rubber-band, cards spread apart */
 (()=>{ const sc=$('#scroller'), st=$('#stack'); let y0=null, mode=null, raf=0;
