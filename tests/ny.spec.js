@@ -43,8 +43,6 @@ test('forced holiday theme is on, and the season follows the local date', async 
     const sy = parseFloat(getComputedStyle(el).getPropertyValue('--cap-sy'));
     return {
       src: el.getAttribute('src'),
-      tx: el.style.getPropertyValue('--cap-tx'),
-      sx: el.style.getPropertyValue('--cap-sx'),
       sy,
     };
   }));
@@ -53,11 +51,11 @@ test('forced holiday theme is on, and the season follows the local date', async 
   expect(kinds.size).toBeGreaterThanOrEqual(3);
   for (let i = 1; i < caps.length; i++) {
     const a = caps[i - 1], b = caps[i];
-    expect(a.src !== b.src || a.tx !== b.tx || a.sx !== b.sx).toBe(true);
+    expect(a.src !== b.src || a.sy !== b.sy).toBe(true);
   }
   for (const c of caps) {
-    expect(c.sy).toBeGreaterThan(0.55);
-    expect(c.sy).toBeLessThan(0.75);
+    expect(c.sy).toBeGreaterThan(0.6);
+    expect(c.sy).toBeLessThan(0.76);
   }
 
   const clear = await page.evaluate(() => {
@@ -104,6 +102,11 @@ test('forced holiday theme is on, and the season follows the local date', async 
 
   await page.locator('#stack .card').last().click();
   await page.waitForFunction(() => (window.__app.ny.openedCrumbs || 0) > 0);
+  await page.waitForFunction(() => {
+    const card = document.querySelector('.card.open').getBoundingClientRect();
+    const panel = document.querySelector('#viewer .panel').getBoundingClientRect();
+    return card.bottom <= panel.top + 4;
+  });
   const overlap = await page.evaluate(() => {
     const p = document.querySelector('#viewer .panel').getBoundingClientRect();
     return [...document.querySelectorAll('.crumb')].some(c => {
@@ -112,10 +115,8 @@ test('forced holiday theme is on, and the season follows the local date', async 
     });
   });
   expect(overlap).toBe(false);
-  if (info.project.name === 'chromium') {
-    await page.waitForTimeout(200);
-    await shot(page, 'ny-crumble');
-  }
+  expect(await page.locator('.card.open .crumb').count()).toBeGreaterThan(0);
+  if (info.project.name === 'chromium') await shot(page, 'ny-crumble');
   await page.locator('#viewer:not(.hidden)').waitFor();
   await page.waitForFunction(() => document.querySelector('#vCode').width > 8);
   const panel = await page.locator('#viewer .panel').evaluate(el => getComputedStyle(el).backgroundColor);

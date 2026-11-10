@@ -116,11 +116,8 @@ function twinkles(id){ let h=hash(id), o='';
   o+=`<i class="tw" style="left:${x}%;top:${y}%;--s:${s}px;--d:${d}s;--dl:${dl}s"></i>`; } return o; }
 function snowCap(id){ if(!NY) return '';
   let h=hash(id||'x'); const k='abcd'[h%4];
-  const sx=((94+(h>>>8)%15)/100).toFixed(2);
-  const tx=((h>>>16)%9-4);
-  const sy=((60+(h>>>21)%11)/100).toFixed(2);
-  const ox=50+((h>>>26)%28);
-  return `<img class="snowcap" alt="" draggable="false" src="assets/ny/snow-cap-${k}.svg?v=20" style="--cap-sx:${sx};--cap-tx:${tx}%;--cap-sy:${sy};--cap-ox:${ox}%">`; }
+  const sy=(0.66+((h>>>8)%8)/100).toFixed(2);
+  return `<img class="snowcap" alt="" draggable="false" src="assets/ny/snow-cap-${k}.svg?v=20" style="--cap-sy:${sy}">`; }
 function initial(name){ const s=String(name||'').trim(); return s?[...s][0].toUpperCase():'•'; }
 function faceHTML(v, has){
   const name=esc(v.name||'');
@@ -255,7 +252,8 @@ function openCard(c){ cur=c; openedAt=Date.now(); haptic('light'); closeCtx();
   const sc=$('#scroller'), st=$('#stack'), topNow=st.getBoundingClientRect().top+sc.scrollTop, want=parseFloat(getComputedStyle(sc).paddingTop)+4;
   const lift=want-topNow; st.style.setProperty('--lift',lift+'px'); sc.scrollTop=0;
   document.body.classList.add('is-open'); layout();
-  const el=els.get(c.id); el.classList.remove('shine'); void el.offsetWidth; el.classList.add('shine'); nyCrumble(el,'open'); setTimeout(()=>burst(el),380);
+  const el=els.get(c.id); el.classList.remove('shine'); void el.offsetWidth; el.classList.add('shine');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>nyCrumble(el,'open'))); setTimeout(()=>burst(el),900);
   drawCode($('#vCode'),c); const n=prettyNum(c); $('#vNum').textContent=n; $('#numRow').classList.toggle('hidden',!n);
   const v=$('#viewer'); v.style.top = (want + cardH() + 18)+'px'; v.classList.remove('hidden');
   c.uses=(c.uses||0)+1; c.last=Date.now(); save(c).catch(()=>{}); try{ localStorage.setItem('mirror',JSON.stringify(cards)); }catch(e){} setBright(true); try{tg&&tg.BackButton.show();}catch(e){} }
@@ -868,9 +866,24 @@ function nyCrumble(card, opt){
   const cap = card && card.querySelector && card.querySelector('.snowcap');
   if(!cap) return 0;
   const open = opt==='open';
-  let n = open ? 6 : (opt|0);
-  n = Math.min(n, CRUMB_MAX - nyLive.length);
+  let n = open ? 8 : (opt|0);
+  n = Math.min(n, CRUMB_MAX - (open ? card.querySelectorAll('.crumb').length : nyLive.length));
   if(n<=0) return 0;
+  if(open){
+    for(let i=0;i<n;i++){
+      const e=document.createElement('i');
+      e.className='crumb fall'+(i%4===0?' bit':'');
+      const s=8+Math.random()*3.5;
+      e.style.width=e.style.height=s.toFixed(1)+'px';
+      e.style.left=(10+Math.random()*78).toFixed(1)+'%';
+      e.style.top=(14+Math.random()*8).toFixed(1)+'px';
+      e.style.setProperty('--dy', (16+Math.random()*26).toFixed(1)+'px');
+      card.appendChild(e);
+      setTimeout(()=>e.remove(), 1100);
+    }
+    window.__app.ny.openedCrumbs=(window.__app.ny.openedCrumbs||0)+n;
+    return n;
+  }
   const host = $('#crumbs'); if(!host) return 0;
   const r = cap.getBoundingClientRect();
   if(r.width<8 || r.bottom<0 || r.top>innerHeight) return 0;
@@ -878,15 +891,16 @@ function nyCrumble(card, opt){
   const pb = panel ? panel.getBoundingClientRect() : null;
   let made = 0;
   for(let i=0;i<n;i++){
-    const x = r.left + r.width*(0.1+Math.random()*0.8);
-    const y = r.top + r.height*(open?0.78:0.7)+Math.random()*4;
+    const edge = open ? card.getBoundingClientRect() : r;
+    const x = edge.left + edge.width*(0.12+Math.random()*0.76);
+    const y = (open ? edge.top + 20 : r.top + r.height*0.72) + Math.random()*6;
     if(pb && y>pb.top-6 && x>pb.left && x<pb.right) continue;
     const e = document.createElement('i');
     e.className = 'crumb'+(i%5===0?' bit':'');
-    const s = open ? 4.2+Math.random()*2.2 : 2.6+Math.random()*1.6;
+    const s = open ? 8+Math.random()*3 : 2.6+Math.random()*1.6;
     e.style.width = e.style.height = s.toFixed(1)+'px';
     host.appendChild(e);
-    nyLive.push({e,x,y,s,open,y0:y,vx:(Math.random()-.5)*(open?10:14),vy:(open?42:30)+Math.random()*(open?28:26),t:0,dur:open?0.78+Math.random()*0.16:0.42+Math.random()*0.14,rot:(Math.random()-.5)*24});
+    nyLive.push({e,x,y,s,open,y0:y,vx:(Math.random()-.5)*(open?16:14),vy:(open?18:30)+Math.random()*(open?16:26),t:0,dur:open?1.25+Math.random()*0.2:0.42+Math.random()*0.14,rot:(Math.random()-.5)*20});
     made++;
   }
   if(!made) return 0;
@@ -924,12 +938,12 @@ function nyCrumbsRun(){
       c.t += dt;
       const k = c.t/c.dur;
       if(k>=1){ c.e.remove(); nyLive.splice(i,1); continue; }
-      c.vy += (c.open?70:80)*dt;
+      c.vy += (c.open?48:80)*dt;
       c.x += c.vx*dt; c.y += c.vy*dt;
       const drop = c.y-c.y0;
-      const far = drop > (c.open?46:24);
+      const far = drop > (c.open?72:24);
       if(far || (pb && c.y+c.s>pb.top && c.x>pb.left && c.x<pb.right)){ c.e.remove(); nyLive.splice(i,1); continue; }
-      const fade = k<0.32 ? 1 : 1-(k-0.32)/0.68;
+      const fade = k<0.55 ? 1 : 1-(k-0.55)/0.45;
       c.e.style.opacity = fade.toFixed(3);
       c.e.style.transform = `translate3d(${c.x.toFixed(1)}px,${c.y.toFixed(1)}px,0) rotate(${(c.rot+k*20).toFixed(1)}deg) scale(${(1-k*0.55).toFixed(3)})`;
     }
@@ -939,13 +953,13 @@ function nyCrumbsRun(){
 }
 function mountGarland(){
   const g = document.querySelector('.garland'); if(!g || g.querySelector('.bulb')) return;
-  const xs = [36.27,72.43,110,147.57,183.73,235.72,271.64,308.75,344.89,377.89,424.43,458.84,495,531.16,565.57];
-  const ys = [14.5,19.75,21.5,19.75,14.5,16.67,23.67,26,23.67,16.67,15.22,21.06,23,21.06,15.22];
+  const xs = [27.23,70.57,112,154.7,193.57,228.4,271.11,314,355.94,393.72,427.4,467.61,508,548.47,580.08];
+  const ys = [22.2,31.4,39.0,33.1,22.5,22.3,32.0,40.0,33.7,22.6,22.1,30.1,37.0,31.8,22.3];
   const cols = ['#FFF3D4','#E8C88A','#F0A8C0','#C5DDD4','#F6D7A6'];
   const glows = ['rgba(255,228,170,.85)','rgba(232,190,100,.7)','rgba(232,120,160,.65)','rgba(170,210,196,.7)','rgba(240,200,130,.75)'];
   const durs = [3.2,2.6,3.8,2.9,4.1,2.5,3.5,2.8,3.9,2.7,3.3,4.4,2.4,3.6,3.1];
   const delays = [0.1,1.7,0.8,2.4,1.2,2.9,0.4,1.9,3.1,0.6,2.2,1.4,2.7,0.15,1.05];
-  const segs = [[10,8,70,26,150,26,210,8],[210,8,268,32,352,32,400,8],[400,8,455,28,535,28,590,8]];
+  const segs = [[8,16,48,16,78,32,112,34],[112,34,150,36,176,16,210,16],[210,16,248,16,278,33,314,35],[314,35,352,37,376,16,410,16],[410,16,446,16,474,30,508,32],[508,32,546,34,568,16,592,16]];
   const bez = (a,b,c,d,t)=>{ const u=1-t; return u*u*u*a+3*u*u*t*b+3*u*t*t*c+t*t*t*d; };
   const path = [];
   for(const s of segs) for(let i=0;i<=14;i++) path.push([bez(s[0],s[2],s[4],s[6],i/14), bez(s[1],s[3],s[5],s[7],i/14)]);
@@ -955,7 +969,7 @@ function mountGarland(){
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'bulb'; b.setAttribute('aria-label','Лампочка');
     b.style.left = (x/600*100).toFixed(2)+'%';
-    b.style.setProperty('--cy', ((ys[i]+8.4)/52*100).toFixed(2));
+    b.style.setProperty('--cy', (ys[i]/52*100).toFixed(2));
     b.style.setProperty('--c', cols[i%cols.length]);
     b.style.setProperty('--glow', glows[i%glows.length]);
     b.style.setProperty('--dur', durs[i]+'s');
@@ -967,7 +981,7 @@ function mountGarland(){
       if(nyStill()) return;
       b.classList.remove('hot'); void b.offsetWidth; b.classList.add('hot');
       clearTimeout(b._hot); b._hot = setTimeout(()=>b.classList.remove('hot'), 520);
-      const bx = x, by = ys[i]+2;
+      const bx = x, by = ys[i]-5;
       let best = 0, bd = 1e9;
       path.forEach((p,pi)=>{ const dx=p[0]-bx, dy=p[1]-by, d=dx*dx+dy*dy; if(d<bd){ bd=d; best=pi; } });
       const dir = best < path.length*0.55 ? 1 : -1;
