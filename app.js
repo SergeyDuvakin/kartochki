@@ -115,9 +115,10 @@ function twinkles(id){ let h=hash(id), o='';
   const x=8+h%84, y=12+(h>>>8)%70, s=5+(h>>>16)%5, d=4+(h>>>20)%4, dl=(h>>>24)%50/10;
   o+=`<i class="tw" style="left:${x}%;top:${y}%;--s:${s}px;--d:${d}s;--dl:${dl}s"></i>`; } return o; }
 function snowCap(id){ if(!NY) return '';
-  let h=hash(id||'x'); const k='abcd'[h%4];
-  const sy=(0.66+((h>>>8)%8)/100).toFixed(2);
-  return `<img class="snowcap" alt="" draggable="false" src="assets/ny/snow-cap-${k}.svg?v=20" style="--cap-sy:${sy}">`; }
+  const k='abcd'[hash(id||'x')%4];
+  return `<img class="snowcap" data-cap="${k}" alt="" draggable="false" src="assets/ny/snow-cap-${k}.svg?v=20">`; }
+function syncCap(el, tall){ const img=el.querySelector('.snowcap'); if(!img) return; const k=img.dataset.cap; if(!k) return;
+  const want=`assets/ny/snow-cap-${k}${tall?'-tall':''}.svg?v=20`; if(img.getAttribute('src')!==want) img.setAttribute('src', want); }
 function initial(name){ const s=String(name||'').trim(); return s?[...s][0].toUpperCase():'•'; }
 function faceHTML(v, has){
   const name=esc(v.name||'');
@@ -173,11 +174,11 @@ function scheduleHydrate(){ if(hydrateP) return;
 function layout(){ const H=cardH(), st=$('#stack'); document.documentElement.style.setProperty('--ch',H+'px');
   if(cur){ // open: chosen card to top, others slide down to bottom
     const iy = list.findIndex(c=>c.id===cur.id); const bottom = innerHeight - (parseFloat(getComputedStyle($('#scroller')).paddingTop)+4) - 30;
-    list.forEach((c,i)=>{ const el=els.get(c.id); el.classList.toggle('open', c.id===cur.id); el.style.zIndex = c.id===cur.id?100:i;
+    list.forEach((c,i)=>{ const el=els.get(c.id); el.classList.toggle('open', c.id===cur.id); syncCap(el, c.id===cur.id); el.style.zIndex = c.id===cur.id?100:i;
       el.style.opacity = 1;
       el.style.transform = c.id===cur.id ? 'translate3d(0,0,0)' : `translate3d(0,${bottom + (i<iy?i:i-1)*10}px,0) scale(.94)`; });
     st.style.height=H+'px'; return; }
-  list.forEach((c,i)=>{ const el=els.get(c.id); el.classList.remove('open'); el.style.zIndex=i; el.style.opacity=1; if(el.classList.contains('dragging')) return;
+  list.forEach((c,i)=>{ const el=els.get(c.id); el.classList.remove('open'); syncCap(el, false); el.style.zIndex=i; el.style.opacity=1; if(el.classList.contains('dragging')) return;
     el.style.transform=`translate3d(0,${i*STRIP + i*spread*0.45 + (spread>0?spread*0.25:0)}px,0)`; });
   st.style.height = list.length ? ((list.length-1)*STRIP+H)+'px' : '0';
 }
@@ -253,7 +254,7 @@ function openCard(c){ cur=c; openedAt=Date.now(); haptic('light'); closeCtx();
   const lift=want-topNow; st.style.setProperty('--lift',lift+'px'); sc.scrollTop=0;
   document.body.classList.add('is-open'); layout();
   const el=els.get(c.id); el.classList.remove('shine'); void el.offsetWidth; el.classList.add('shine');
-  requestAnimationFrame(()=>requestAnimationFrame(()=>nyCrumble(el,'open'))); setTimeout(()=>burst(el),900);
+  setTimeout(()=>{ if(cur&&cur.id===c.id) nyCrumble(el,'open'); }, 680); setTimeout(()=>burst(el),900);
   drawCode($('#vCode'),c); const n=prettyNum(c); $('#vNum').textContent=n; $('#numRow').classList.toggle('hidden',!n);
   const v=$('#viewer'); v.style.top = (want + cardH() + 18)+'px'; v.classList.remove('hidden');
   c.uses=(c.uses||0)+1; c.last=Date.now(); save(c).catch(()=>{}); try{ localStorage.setItem('mirror',JSON.stringify(cards)); }catch(e){} setBright(true); try{tg&&tg.BackButton.show();}catch(e){} }
@@ -866,41 +867,25 @@ function nyCrumble(card, opt){
   const cap = card && card.querySelector && card.querySelector('.snowcap');
   if(!cap) return 0;
   const open = opt==='open';
-  let n = open ? 8 : (opt|0);
-  n = Math.min(n, CRUMB_MAX - (open ? card.querySelectorAll('.crumb').length : nyLive.length));
+  let n = open ? 5 : (opt|0);
+  n = Math.min(n, CRUMB_MAX - nyLive.length);
   if(n<=0) return 0;
-  if(open){
-    for(let i=0;i<n;i++){
-      const e=document.createElement('i');
-      e.className='crumb fall'+(i%4===0?' bit':'');
-      const s=8+Math.random()*3.5;
-      e.style.width=e.style.height=s.toFixed(1)+'px';
-      e.style.left=(10+Math.random()*78).toFixed(1)+'%';
-      e.style.top=(14+Math.random()*8).toFixed(1)+'px';
-      e.style.setProperty('--dy', (16+Math.random()*26).toFixed(1)+'px');
-      card.appendChild(e);
-      setTimeout(()=>e.remove(), 1100);
-    }
-    window.__app.ny.openedCrumbs=(window.__app.ny.openedCrumbs||0)+n;
-    return n;
-  }
   const host = $('#crumbs'); if(!host) return 0;
-  const r = cap.getBoundingClientRect();
+  const r = (open ? card : cap).getBoundingClientRect();
   if(r.width<8 || r.bottom<0 || r.top>innerHeight) return 0;
   const panel = document.querySelector('#viewer:not(.hidden) .panel');
   const pb = panel ? panel.getBoundingClientRect() : null;
   let made = 0;
   for(let i=0;i<n;i++){
-    const edge = open ? card.getBoundingClientRect() : r;
-    const x = edge.left + edge.width*(0.12+Math.random()*0.76);
-    const y = (open ? edge.top + 20 : r.top + r.height*0.72) + Math.random()*6;
-    if(pb && y>pb.top-6 && x>pb.left && x<pb.right) continue;
+    const x = r.left + r.width*(open ? 0.2+Math.random()*0.6 : 0.15+Math.random()*0.7);
+    const y = (open ? r.top - 1 : r.top + r.height*0.62) + Math.random()*3;
+    if(pb && y>pb.top-8 && x>pb.left && x<pb.right) continue;
     const e = document.createElement('i');
-    e.className = 'crumb'+(i%5===0?' bit':'');
-    const s = open ? 8+Math.random()*3 : 2.6+Math.random()*1.6;
+    e.className = 'crumb'+(i%3===0?' bit':'');
+    const s = open ? 2.4+Math.random()*3.2 : 2.4+Math.random()*1.6;
     e.style.width = e.style.height = s.toFixed(1)+'px';
     host.appendChild(e);
-    nyLive.push({e,x,y,s,open,y0:y,vx:(Math.random()-.5)*(open?16:14),vy:(open?18:30)+Math.random()*(open?16:26),t:0,dur:open?1.25+Math.random()*0.2:0.42+Math.random()*0.14,rot:(Math.random()-.5)*20});
+    nyLive.push({e,x,y,s,open,y0:y,base:open?0.4+Math.random()*0.45:1,vx:(Math.random()-.5)*(open?6:14),vy:(open?8:28)+Math.random()*(open?10:22),t:0,dur:open?0.42+Math.random()*0.18:0.42+Math.random()*0.14,rot:(Math.random()-.5)*16});
     made++;
   }
   if(!made) return 0;
@@ -938,13 +923,13 @@ function nyCrumbsRun(){
       c.t += dt;
       const k = c.t/c.dur;
       if(k>=1){ c.e.remove(); nyLive.splice(i,1); continue; }
-      c.vy += (c.open?48:80)*dt;
+      c.vy += (c.open?18:80)*dt;
       c.x += c.vx*dt; c.y += c.vy*dt;
       const drop = c.y-c.y0;
-      const far = drop > (c.open?72:24);
+      const far = drop > (c.open?16:24);
       if(far || (pb && c.y+c.s>pb.top && c.x>pb.left && c.x<pb.right)){ c.e.remove(); nyLive.splice(i,1); continue; }
-      const fade = k<0.55 ? 1 : 1-(k-0.55)/0.45;
-      c.e.style.opacity = fade.toFixed(3);
+      const fade = (c.base||1) * (c.open ? 1-k : (k<0.55 ? 1 : 1-(k-0.55)/0.45));
+      c.e.style.opacity = Math.max(0, fade).toFixed(3);
       c.e.style.transform = `translate3d(${c.x.toFixed(1)}px,${c.y.toFixed(1)}px,0) rotate(${(c.rot+k*20).toFixed(1)}deg) scale(${(1-k*0.55).toFixed(3)})`;
     }
     crumbRAF = nyLive.length ? requestAnimationFrame(tick) : 0;

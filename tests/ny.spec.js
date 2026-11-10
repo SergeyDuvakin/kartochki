@@ -39,23 +39,29 @@ test('forced holiday theme is on, and the season follows the local date', async 
   await expect(page.locator('#stack .card:not(.has-bg) .hole')).toHaveCount(0);
   await expect(page.locator('#stack .card:not(.has-bg) .logo')).toHaveCount(0);
 
-  const caps = await page.locator('#stack .snowcap').evaluateAll(els => els.map(el => {
-    const sy = parseFloat(getComputedStyle(el).getPropertyValue('--cap-sy'));
+  const caps = await page.locator('#stack .snowcap').evaluateAll(els => els.map(el => el.getAttribute('src')));
+  expect(caps.length).toBeGreaterThan(2);
+  expect(new Set(caps).size).toBeGreaterThanOrEqual(3);
+  for (let i = 1; i < caps.length; i++) expect(caps[i]).not.toBe(caps[i - 1]);
+  const fit = await page.locator('#stack .card').evaluateAll(cards => cards.map(card => {
+    const cap = card.querySelector('.snowcap');
+    const nm = card.querySelector('.nm');
+    const cr = card.getBoundingClientRect();
+    const pr = cap.getBoundingClientRect();
+    const nr = nm.getBoundingClientRect();
+    const nameHit = document.elementFromPoint(nr.left + 10, nr.top + nr.height / 2);
     return {
-      src: el.getAttribute('src'),
-      sy,
+      above: pr.top < cr.top - 4,
+      side: pr.left >= cr.left - 1 && pr.right <= cr.right + 1,
+      name: nameHit === nm || nameHit === card || !!(nm.contains && nm.contains(nameHit)),
+      gap: Math.round(nr.top - cr.top),
     };
   }));
-  expect(caps.length).toBeGreaterThan(2);
-  const kinds = new Set(caps.map(c => c.src));
-  expect(kinds.size).toBeGreaterThanOrEqual(3);
-  for (let i = 1; i < caps.length; i++) {
-    const a = caps[i - 1], b = caps[i];
-    expect(a.src !== b.src || a.sy !== b.sy).toBe(true);
-  }
-  for (const c of caps) {
-    expect(c.sy).toBeGreaterThan(0.6);
-    expect(c.sy).toBeLessThan(0.76);
+  for (const row of fit) {
+    expect(row.above).toBe(true);
+    expect(row.side).toBe(true);
+    expect(row.name).toBe(true);
+    expect(row.gap).toBeGreaterThan(10);
   }
 
   const clear = await page.evaluate(() => {
@@ -115,8 +121,11 @@ test('forced holiday theme is on, and the season follows the local date', async 
     });
   });
   expect(overlap).toBe(false);
-  expect(await page.locator('.card.open .crumb').count()).toBeGreaterThan(0);
-  if (info.project.name === 'chromium') await shot(page, 'ny-crumble');
+  expect(await page.locator('#crumbs .crumb').count()).toBeGreaterThan(0);
+  if (info.project.name === 'chromium') {
+    await page.waitForTimeout(140);
+    await shot(page, 'ny-crumble');
+  }
   await page.locator('#viewer:not(.hidden)').waitFor();
   await page.waitForFunction(() => document.querySelector('#vCode').width > 8);
   const panel = await page.locator('#viewer .panel').evaluate(el => getComputedStyle(el).backgroundColor);
@@ -134,12 +143,8 @@ test('forced holiday theme is on, and the season follows the local date', async 
   expect(barcodeClear.inViewer).toBe(true);
   expect(barcodeClear.flake).toBe(false);
   expect(barcodeClear.snowInPanel).toBe(0);
-  const openCap = await page.locator('#stack .card.open .snowcap').evaluate(el => {
-    const m = getComputedStyle(el).transform.match(/matrix\(([^)]+)\)/);
-    const sy = m ? parseFloat(m[1].split(',')[3]) : 0;
-    return sy;
-  });
-  expect(openCap).toBeGreaterThan(0.85);
+  const openCap = await page.locator('#stack .card.open .snowcap').evaluate(el => el.getAttribute('src'));
+  expect(openCap).toContain('-tall');
   if (info.project.name === 'chromium') {
     await page.waitForFunction(() => document.querySelectorAll('.crumb').length === 0);
     await shot(page, 'ny-open');

@@ -318,16 +318,13 @@ html.ny .charm{position:absolute;z-index:4;right:10px;top:26px;width:13px;height
   background:url("assets/ny/header-snowflake.svg?v=20") center/contain no-repeat;filter:drop-shadow(0 1px 0 rgba(90,112,130,.28))}
 html.ny .charm::before{content:"";position:absolute;left:50%;top:-6px;width:5px;height:5px;margin-left:-3.5px;border:1px solid rgba(120,142,160,.55);border-radius:50%}
 #crumbs{position:fixed;inset:0;z-index:140;pointer-events:none;overflow:hidden}
-html.ny .crumb{position:absolute;left:0;top:0;border-radius:50%;background:radial-gradient(circle at 32% 30%, #fff, #f4f8fb 55%, #d5e1ec);
-  box-shadow:0 1px 2px rgba(60,80,100,.35);pointer-events:none;will-change:transform,opacity}
-html.ny .crumb.bit{border-radius:0;background:url("assets/ny/header-snowflake.svg?v=20") center/contain no-repeat;box-shadow:none}
-html.ny .card .crumb.fall{position:absolute;z-index:4;margin:0;animation:crumbfall 1.05s cubic-bezier(.22,.7,.3,1) forwards}
-@keyframes crumbfall{0%{transform:translateY(0) scale(1);opacity:1}55%{opacity:1}100%{transform:translateY(var(--dy,28px)) scale(.55);opacity:0}}
-html.ny .stack{margin-top:18px}
-html.ny .card{overflow:hidden}
-html.ny .snowcap{position:absolute;left:0;top:0;width:100%;height:auto;aspect-ratio:340/30;z-index:2;pointer-events:none;
-  transform-origin:center top;transform:scaleY(var(--cap-sy,.7))}
-html.ny .card.open .snowcap{transform:scaleY(1)}
+html.ny .crumb{position:absolute;left:0;top:0;border-radius:50%;pointer-events:none;will-change:transform,opacity;
+  background:radial-gradient(circle, rgba(255,255,255,.92) 0 45%, rgba(255,255,255,.2) 72%, transparent 74%)}
+html.ny .crumb.bit{border-radius:0;background:url("assets/ny/header-snowflake.svg?v=20") center/contain no-repeat}
+html.ny .stack{margin-top:26px}
+html.ny .card{overflow:visible}
+html.ny .snowcap{position:absolute;left:0;top:0;width:100%;height:auto;aspect-ratio:340/50;z-index:2;pointer-events:none;
+  transform:translateY(-56%)}
 html.ny .card .nm,html.ny .card .brand,html.ny .hole,html.ny .fmt,html.ny .tail{z-index:6}
 html.ny .card img.tw{background:none;filter:none;object-fit:contain}
 html.ny .flake{position:absolute;left:0;top:0;pointer-events:none;will-change:transform}

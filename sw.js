@@ -7,6 +7,7 @@ const SHELL = ['./', 'index.html', 'style.css?v=20', 'app.js?v=20', 'seed.js?v=2
   'assets/ny/garland-bright.svg?v=20', 'assets/ny/garland-dim.svg?v=20', 'assets/ny/garland-wire.svg?v=20',
   'assets/ny/snowflake-1.svg?v=20', 'assets/ny/snowflake-2.svg?v=20', 'assets/ny/snowflake-3.svg?v=20', 'assets/ny/snowflake-4.svg?v=20',
   'assets/ny/flake-dot.svg?v=20', 'assets/ny/snow-cap-a.svg?v=20', 'assets/ny/snow-cap-b.svg?v=20', 'assets/ny/snow-cap-c.svg?v=20', 'assets/ny/snow-cap-d.svg?v=20',
+  'assets/ny/snow-cap-a-tall.svg?v=20', 'assets/ny/snow-cap-b-tall.svg?v=20', 'assets/ny/snow-cap-c-tall.svg?v=20', 'assets/ny/snow-cap-d-tall.svg?v=20',
   'assets/ny/sparkle-white.svg?v=20', 'assets/ny/sparkle-gold.svg?v=20'];
 const LAZY = ['vendor/zxing-wasm-2.2.4-full.js', 'vendor/zxing_full.wasm']; // scanner: cached in background, not required to install
 
