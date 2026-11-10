@@ -39,6 +39,11 @@ test('forced holiday theme is on, and the season follows the local date', async 
   await expect(page.locator('#stack .card:not(.has-bg) .hole')).toHaveCount(0);
   await expect(page.locator('#stack .card:not(.has-bg) .logo')).toHaveCount(0);
 
+  await page.waitForFunction(() => {
+    const cards = [...document.querySelectorAll('#stack .card')];
+    if (cards.length < 2) return false;
+    return cards[1].getBoundingClientRect().top - cards[0].getBoundingClientRect().top > 50;
+  });
   const caps = await page.locator('#stack .snowcap').evaluateAll(els => els.map(el => el.getAttribute('src')));
   expect(caps.length).toBeGreaterThan(2);
   expect(new Set(caps).size).toBeGreaterThanOrEqual(3);
