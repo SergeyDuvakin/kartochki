@@ -278,18 +278,60 @@ html.ny h1{position:relative}
 html.ny .header-flake{display:inline-block;width:18px;height:18px;margin-left:6px;vertical-align:8px}
 html.ny .title-snow{display:block;position:absolute;left:0;width:88%;height:8px;bottom:calc(100% - 1px);pointer-events:none}
 html.ny .garland{display:block;position:relative;width:calc(100% + 12px);margin:-2px 0 2px -6px;aspect-ratio:600/52;pointer-events:none}
-html.ny .garland img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill}
+html.ny .garland img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;z-index:0}
 html.ny .garland .g-dim{animation:garland 5.6s ease-in-out infinite}
-@keyframes garland{0%,100%{opacity:0}50%{opacity:1}}
+@keyframes garland{0%,100%{opacity:.15}45%,55%{opacity:.55}}
+html.ny .garland .bulb{position:absolute;top:0;height:100%;width:22px;padding:0;border:0;background:none;transform:translateX(-50%);pointer-events:auto;z-index:2}
+html.ny .garland .bulb i{position:absolute;left:50%;top:calc(var(--cy)*1% - 4px);width:6px;height:8px;margin-left:-3px;border-radius:46% 46% 50% 50%;
+  background:radial-gradient(circle at 32% 28%, #fff 0 1px, var(--c) 42%, var(--c));
+  box-shadow:0 0 5px var(--glow), 0 1px 0 rgba(120,96,70,.18);
+  transform-origin:50% -3px;animation:bulbglow var(--dur,3.2s) ease-in-out var(--delay,0s) infinite}
+html.ny .garland .bulb i::before{content:"";position:absolute;left:50%;top:-2.5px;width:2.5px;height:2.5px;margin-left:-1.25px;border-radius:.6px;background:#B7A898}
+@keyframes bulbglow{0%,100%{opacity:.48;filter:brightness(.88)}50%{opacity:1;filter:brightness(1.22)}}
+html.ny .garland .bulb.hot i{animation:bulbflash .52s cubic-bezier(.2,.8,.2,1)}
+@keyframes bulbflash{0%{opacity:1;filter:brightness(1);transform:scale(1)}30%{opacity:1;filter:brightness(2.05);transform:scale(1.32)}100%{opacity:.9;filter:brightness(1.05);transform:scale(1)}}
+html.ny .garland .bulb.pass i{filter:brightness(1.75);opacity:1}
+html.ny .garland .runner{position:absolute;left:0;top:0;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;pointer-events:none;z-index:3;opacity:0;
+  background:radial-gradient(circle, #fff 0 20%, #ffe3a4 42%, rgba(255,214,140,0) 72%);will-change:transform}
+html.ny .garland .runner.on{opacity:1}
+html.ny #addBtn,html.ny #searchBtn{position:relative}
+html.ny #addBtn::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:
+    radial-gradient(circle at 20% 16%, #fff 0 1.3px, transparent 2.1px),
+    radial-gradient(circle at 78% 18%, rgba(214,232,242,.95) 0 1.2px, transparent 2px),
+    radial-gradient(circle at 84% 70%, #fff 0 1.15px, transparent 1.9px),
+    radial-gradient(circle at 26% 82%, rgba(186,214,228,.9) 0 1.25px, transparent 2px),
+    linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,0) 46%);
+  -webkit-mask:radial-gradient(circle, transparent 56%, #000 68%);
+  mask:radial-gradient(circle, transparent 56%, #000 68%)}
+html.ny #searchBtn::after{content:"";position:absolute;inset:0;border-radius:22px 0 0 22px;pointer-events:none;padding:2px 0 2px 2px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.92), rgba(206,224,236,.45) 46%, rgba(255,255,255,.72)),
+    radial-gradient(circle at 9px 7px, #fff 0 1.15px, transparent 2px),
+    radial-gradient(circle at 11px 36px, rgba(186,214,228,.95) 0 1.15px, transparent 2px);
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);mask-composite:exclude}
+html.ny .charm{position:absolute;z-index:4;right:10px;top:26px;width:13px;height:13px;pointer-events:none;
+  background:url("assets/ny/header-snowflake.svg?v=20") center/contain no-repeat;filter:drop-shadow(0 1px 0 rgba(90,112,130,.28))}
+html.ny .charm::before{content:"";position:absolute;left:50%;top:-6px;width:5px;height:5px;margin-left:-3.5px;border:1px solid rgba(120,142,160,.55);border-radius:50%}
+#crumbs{position:fixed;inset:0;z-index:140;pointer-events:none;overflow:hidden}
+html.ny .crumb{position:absolute;left:0;top:0;border-radius:50%;background:radial-gradient(circle at 35% 30%, #fff, #eef3f8 72%);
+  box-shadow:0 1px 1px rgba(110,130,150,.28);pointer-events:none;will-change:transform,opacity}
+html.ny .crumb.bit{border-radius:0;background:url("assets/ny/header-snowflake.svg?v=20") center/contain no-repeat;box-shadow:none}
 html.ny .stack{margin-top:34px}
 html.ny .card{overflow:visible}
-html.ny .snowcap{position:absolute;left:0;width:100%;height:auto;aspect-ratio:340/46;top:0;transform:translateY(-56.5%);z-index:2;pointer-events:none;
-  -webkit-mask-image:radial-gradient(circle 13px at calc(100% - 19px) calc(56.5% + 20px), transparent 11px, #000 13px);
+html.ny .snowcap{position:absolute;left:0;width:100%;height:auto;aspect-ratio:340/46;top:0;z-index:2;pointer-events:none;
+  transform-origin:var(--cap-ox,62%) 56.5%;
+  transform:translateY(-56.5%) translateX(var(--cap-tx,0%)) scale(var(--cap-sx,1),var(--cap-sy,.64))}
+html.ny .card.open .snowcap{transform:translateY(-56.5%) translateX(var(--cap-tx,0%)) scale(var(--cap-sx,1),.94)}
+html.ny .card.has-bg .snowcap{-webkit-mask-image:radial-gradient(circle 13px at calc(100% - 19px) calc(56.5% + 20px), transparent 11px, #000 13px);
   mask-image:radial-gradient(circle 13px at calc(100% - 19px) calc(56.5% + 20px), transparent 11px, #000 13px)}
 html.ny .card .nm,html.ny .card .brand,html.ny .hole,html.ny .fmt,html.ny .tail{z-index:6}
 html.ny .card img.tw{background:none;filter:none;object-fit:contain}
 html.ny .flake{position:absolute;left:0;top:0;pointer-events:none;will-change:transform}
 @media (prefers-reduced-motion:reduce){
-  html.ny .garland .g-dim{animation:none;opacity:0}
+  html.ny .garland .g-dim{animation:none;opacity:.2}
+  html.ny .garland .bulb i{animation:none;opacity:.92;filter:none}
   html.ny .flake,html.ny .tw,html.ny .ny-spark{animation:none}
 }
+html.asleep .garland .bulb i,html.asleep .garland .g-dim{animation-play-state:paused}

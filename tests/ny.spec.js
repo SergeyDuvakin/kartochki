@@ -36,6 +36,29 @@ test('forced holiday theme is on, and the season follows the local date', async 
   await expect(page.locator('.garland')).toBeVisible();
   await expect(page.locator('.header-flake')).toBeVisible();
   await expect(page.locator('#stack .snowcap').first()).toBeVisible();
+  await expect(page.locator('#stack .card:not(.has-bg) .hole')).toHaveCount(0);
+  await expect(page.locator('#stack .card:not(.has-bg) .logo')).toHaveCount(0);
+
+  const caps = await page.locator('#stack .snowcap').evaluateAll(els => els.map(el => {
+    const sy = parseFloat(getComputedStyle(el).getPropertyValue('--cap-sy'));
+    return {
+      src: el.getAttribute('src'),
+      tx: el.style.getPropertyValue('--cap-tx'),
+      sx: el.style.getPropertyValue('--cap-sx'),
+      sy,
+    };
+  }));
+  expect(caps.length).toBeGreaterThan(2);
+  const kinds = new Set(caps.map(c => c.src));
+  expect(kinds.size).toBeGreaterThanOrEqual(3);
+  for (let i = 1; i < caps.length; i++) {
+    const a = caps[i - 1], b = caps[i];
+    expect(a.src !== b.src || a.tx !== b.tx || a.sx !== b.sx).toBe(true);
+  }
+  for (const c of caps) {
+    expect(c.sy).toBeGreaterThan(0.55);
+    expect(c.sy).toBeLessThan(0.75);
+  }
 
   const clear = await page.evaluate(() => {
     const card = document.querySelector('#stack .card');
@@ -52,9 +75,47 @@ test('forced holiday theme is on, and the season follows the local date', async 
   expect(clear.cap).toBe(true);
   expect(clear.hit).toMatch(/nm|card/);
 
-  if (info.project.name === 'chromium') await shot(page, 'ny-stack');
+  const taps = await page.evaluate(() => {
+    const hit = sel => {
+      const el = document.querySelector(sel);
+      const r = el.getBoundingClientRect();
+      const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !!(at && at.closest(sel));
+    };
+    return { add: hit('#addBtn'), search: hit('#searchBtn') };
+  });
+  expect(taps.add).toBe(true);
+  expect(taps.search).toBe(true);
+
+  if (info.project.name === 'chromium') {
+    await shot(page, 'ny-stack');
+    const head = await page.locator('header.top').boundingBox();
+    await page.screenshot({ path: path.join(ART, 'ny-header.png'), clip: head });
+    await page.evaluate(() => {
+      document.documentElement.classList.remove('ny');
+      document.querySelectorAll('.snowcap, #fx').forEach(el => { el.style.visibility = 'hidden'; });
+    });
+    await shot(page, 'main-stack');
+    await page.evaluate(() => {
+      document.documentElement.classList.add('ny');
+      document.querySelectorAll('.snowcap, #fx').forEach(el => { el.style.visibility = ''; });
+    });
+  }
 
   await page.locator('#stack .card').last().click();
+  await page.waitForFunction(() => (window.__app.ny.openedCrumbs || 0) > 0);
+  const overlap = await page.evaluate(() => {
+    const p = document.querySelector('#viewer .panel').getBoundingClientRect();
+    return [...document.querySelectorAll('.crumb')].some(c => {
+      const r = c.getBoundingClientRect();
+      return r.width > 0 && r.bottom > p.top + 1 && r.top < p.bottom && r.right > p.left + 1 && r.left < p.right - 1;
+    });
+  });
+  expect(overlap).toBe(false);
+  if (info.project.name === 'chromium') {
+    await page.waitForTimeout(200);
+    await shot(page, 'ny-crumble');
+  }
   await page.locator('#viewer:not(.hidden)').waitFor();
   await page.waitForFunction(() => document.querySelector('#vCode').width > 8);
   const panel = await page.locator('#viewer .panel').evaluate(el => getComputedStyle(el).backgroundColor);
@@ -72,7 +133,16 @@ test('forced holiday theme is on, and the season follows the local date', async 
   expect(barcodeClear.inViewer).toBe(true);
   expect(barcodeClear.flake).toBe(false);
   expect(barcodeClear.snowInPanel).toBe(0);
-  if (info.project.name === 'chromium') await shot(page, 'ny-open');
+  const openCap = await page.locator('#stack .card.open .snowcap').evaluate(el => {
+    const m = getComputedStyle(el).transform.match(/matrix\(([^)]+)\)/);
+    const sy = m ? parseFloat(m[1].split(',')[3]) : 0;
+    return sy;
+  });
+  expect(openCap).toBeGreaterThan(0.85);
+  if (info.project.name === 'chromium') {
+    await page.waitForFunction(() => document.querySelectorAll('.crumb').length === 0);
+    await shot(page, 'ny-open');
+  }
   await page.locator('#stack .card').last().click();
   await expect(page.locator('#viewer')).toBeHidden();
 
@@ -114,7 +184,31 @@ test('forced holiday theme is on, and the season follows the local date', async 
   expect(photo.cap).toBe(true);
   expect(photo.chip).toBe(true);
   expect(photo.gap).toBeGreaterThan(4);
-  await expect(page.locator('#stack .card.has-bg .hole')).toHaveCount(1);
+  const holeSeen = await page.locator('#stack .card.has-bg .hole').evaluate(el => {
+    el.style.pointerEvents = 'auto';
+    const r = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    const logo = el.parentElement.querySelector('.logo');
+    logo.style.pointerEvents = 'auto';
+    const lr = logo.getBoundingClientRect();
+    const logoHit = document.elementFromPoint(lr.left + lr.width / 2, lr.top + lr.height / 2);
+    return { hole: hit === el, logo: logoHit === logo, w: r.width, lw: lr.width };
+  });
+  expect(holeSeen.hole).toBe(true);
+  expect(holeSeen.logo).toBe(true);
+  expect(holeSeen.w).toBeGreaterThan(8);
+  expect(holeSeen.lw).toBeGreaterThan(16);
+  const charm = await page.locator('#stack .card.has-bg').evaluate(el => {
+    const c = el.querySelector('.charm').getBoundingClientRect();
+    const brand = el.querySelector('.brand').getBoundingClientRect();
+    const hole = el.querySelector('.hole').getBoundingClientRect();
+    const overlap = !(c.right < brand.left || c.left > brand.right || c.bottom < brand.top || c.top > brand.bottom);
+    return { n: el.querySelectorAll('.charm').length, overlap, below: c.top >= hole.top + hole.height * 0.4 };
+  });
+  expect(charm.n).toBe(1);
+  expect(charm.overlap).toBe(false);
+  expect(charm.below).toBe(true);
+  await expect(page.locator('#stack .card:not(.has-bg) .charm')).toHaveCount(0);
   await hidePill(page);
   if (info.project.name === 'chromium') await shot(page, 'ny-photo');
 });
@@ -129,6 +223,129 @@ test('reduced motion keeps the holiday still', async ({ page }) => {
   expect(after).toBe(before);
   const garland = await page.locator('.garland .g-dim').evaluate(el => getComputedStyle(el).animationName);
   expect(garland).toBe('none');
+  const bulb = await page.locator('.garland .bulb i').first().evaluate(el => getComputedStyle(el).animationName);
+  expect(bulb).toBe('none');
+  await page.locator('.garland .bulb').first().click();
+  expect(await page.locator('.garland').getAttribute('data-run')).toBeNull();
+  await page.locator('#stack .card').last().click();
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(() => window.__app.ny.openedCrumbs || 0)).toBe(0);
+  expect(await page.locator('.crumb').count()).toBe(0);
+  await page.mouse.wheel(0, 400);
+  expect(await page.evaluate(() => window.__app.ny.shed || 0)).toBe(0);
+});
+
+test('holiday header stays tappable on narrow and wide phones', async ({ page }, info) => {
+  await boot(page);
+  for (const width of [320, 430]) {
+    await page.setViewportSize({ width, height: 780 });
+    await page.waitForTimeout(60);
+    const hit = await page.evaluate(() => {
+      const ok = sel => {
+        const el = document.querySelector(sel);
+        const r = el.getBoundingClientRect();
+        const at = document.elementFromPoint(r.left + Math.min(16, r.width / 2), r.top + r.height / 2);
+        return !!(at && at.closest(sel));
+      };
+      return {
+        add: ok('#addBtn'),
+        search: ok('#searchBtn'),
+        wire: document.querySelector('.g-bright').naturalWidth > 0,
+        bulbs: document.querySelectorAll('.garland .bulb').length,
+      };
+    });
+    expect(hit).toEqual({ add: true, search: true, wire: true, bulbs: 15 });
+    if (info.project.name === 'chromium') await shot(page, 'ny-w' + width);
+  }
+});
+
+test('garland bulbs twinkle, and a tap runs a light along the wire', async ({ page }) => {
+  await boot(page);
+  await expect(page.locator('.garland .bulb')).toHaveCount(15);
+  const motion = await page.locator('.garland .bulb i').first().evaluate(el => {
+    const cs = getComputedStyle(el);
+    return { name: cs.animationName, dur: parseFloat(cs.animationDuration) };
+  });
+  expect(motion.name).toBe('bulbglow');
+  expect(motion.dur).toBeGreaterThan(2);
+  expect(motion.dur).toBeLessThan(5);
+  await page.locator('.garland .bulb').nth(4).click();
+  await expect(page.locator('.garland')).toHaveAttribute('data-run', '1');
+  await expect(page.locator('.garland .bulb.hot')).toHaveCount(1);
+  await expect(page.locator('.garland .runner.on')).toHaveCount(1);
+});
+
+function pointerDrag(page, dy, frameMs) {
+  return page.evaluate(({ dy, frameMs }) => new Promise(res => {
+    const card = document.querySelector('#stack .card');
+    const r = card.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + 22;
+    const ev = (type, cy) => card.dispatchEvent(new PointerEvent(type, {
+      bubbles: true, cancelable: true, clientX: x, clientY: cy, pointerId: 1, pointerType: 'mouse', buttons: 1,
+    }));
+    ev('pointerdown', y);
+    setTimeout(() => {
+      const steps = 5;
+      let i = 0;
+      const step = () => {
+        i += 1;
+        ev('pointermove', y + (dy * i) / steps);
+        if (i < steps) {
+          if (frameMs) setTimeout(step, frameMs);
+          else requestAnimationFrame(step);
+        } else {
+          ev('pointerup', y + dy);
+          res(true);
+        }
+      };
+      step();
+    }, 470);
+  }), { dy, frameMs });
+}
+
+test('moving the stack sheds a little snow and ignores tiny motion', async ({ page }) => {
+  await boot(page);
+  await expect(page.locator('#stack .card').first()).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 540 });
+  const tiny = await page.evaluate(() => new Promise(res => {
+    const sc = document.querySelector('#scroller');
+    const before = window.__app.ny.shed;
+    let i = 0;
+    const step = () => {
+      sc.scrollTop += 1;
+      if (++i < 8) requestAnimationFrame(step);
+      else res(window.__app.ny.shed - before);
+    };
+    requestAnimationFrame(step);
+  }));
+  expect(tiny).toBe(0);
+  const brisk = await page.evaluate(() => new Promise(res => {
+    const sc = document.querySelector('#scroller');
+    const before = window.__app.ny.shed;
+    let i = 0;
+    const step = () => {
+      sc.scrollTop += 36;
+      if (++i < 8) requestAnimationFrame(step);
+      else res({ shed: window.__app.ny.shed - before, top: sc.scrollTop, alive: document.querySelectorAll('.crumb').length });
+    };
+    requestAnimationFrame(step);
+  }));
+  expect(brisk.top).toBeGreaterThan(40);
+  expect(brisk.shed).toBeGreaterThan(0);
+  expect(brisk.shed).toBeLessThanOrEqual(12);
+  expect(brisk.alive).toBeLessThanOrEqual(22);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => { document.querySelector('#scroller').scrollTop = 0; });
+  await page.waitForTimeout(200);
+  const beforeSlow = await page.evaluate(() => window.__app.ny.shed);
+  await pointerDrag(page, 20, 120);
+  expect(await page.evaluate(() => window.__app.ny.shed)).toBe(beforeSlow);
+  await pointerDrag(page, 150, 0);
+  const after = await page.evaluate(() => ({ shed: window.__app.ny.shed, alive: document.querySelectorAll('.crumb').length }));
+  expect(after.shed).toBeGreaterThan(beforeSlow);
+  expect(after.shed - beforeSlow).toBeLessThanOrEqual(12);
+  expect(after.alive).toBeLessThanOrEqual(22);
 });
 
 test('holiday art is cached for offline', async ({ page }) => {

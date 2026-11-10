@@ -4,7 +4,7 @@ const CACHE = 'kartochki-v' + VERSION;
 const SHELL = ['./', 'index.html', 'style.css?v=20', 'app.js?v=20', 'seed.js?v=20', 'version.json', 'manifest.webmanifest',
   'icon-180.png', 'icon-192.png', 'icon-512.png', 'vendor/telegram-web-app.js?v=20', 'vendor/bwip-js-4.11.4.min.js',
   'assets/ny/background.svg?v=20', 'assets/ny/header-snowflake.svg?v=20', 'assets/ny/title-snow-thin.svg?v=20',
-  'assets/ny/garland-bright.svg?v=20', 'assets/ny/garland-dim.svg?v=20',
+  'assets/ny/garland-bright.svg?v=20', 'assets/ny/garland-dim.svg?v=20', 'assets/ny/garland-wire.svg?v=20',
   'assets/ny/snowflake-1.svg?v=20', 'assets/ny/snowflake-2.svg?v=20', 'assets/ny/snowflake-3.svg?v=20', 'assets/ny/snowflake-4.svg?v=20',
   'assets/ny/flake-dot.svg?v=20', 'assets/ny/snow-cap-a.svg?v=20', 'assets/ny/snow-cap-b.svg?v=20', 'assets/ny/snow-cap-c.svg?v=20', 'assets/ny/snow-cap-d.svg?v=20',
   'assets/ny/sparkle-white.svg?v=20', 'assets/ny/sparkle-gold.svg?v=20'];
