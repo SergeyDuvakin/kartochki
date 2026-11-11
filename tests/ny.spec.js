@@ -12,7 +12,34 @@ function shot(page, name) {
 
 test.use({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
 
-test('forced holiday theme is on, and the season follows the local date', async ({ page }, info) => {
+const IN_SEASON = new Date(2026, 11, 20, 12, 0, 0);
+const OFF_SEASON = new Date(2026, 10, 11, 12, 0, 0);
+
+async function atDate(page, date) {
+  const fixed = date.getTime();
+  await page.addInitScript(ms => {
+    const Orig = Date;
+    const started = performance.now();
+    const at = () => ms + (performance.now() - started);
+    function MockDate(...args) {
+      if (!new.target) return new Orig(at()).toString();
+      if (args.length === 0) return new Orig(at());
+      return new Orig(...args);
+    }
+    MockDate.prototype = Orig.prototype;
+    MockDate.now = at;
+    MockDate.parse = Orig.parse;
+    MockDate.UTC = Orig.UTC;
+    window.Date = MockDate;
+  }, fixed);
+}
+
+test.beforeEach(async ({ page }, info) => {
+  if (/off-season|November/.test(info.title)) return;
+  await atDate(page, IN_SEASON);
+});
+
+test('the season follows the local date, and December 20 shows the theme', async ({ page }, info) => {
   await boot(page);
   await expect(page.locator('#stack .card').first()).toBeVisible();
   const flags = await page.evaluate(() => ({
@@ -26,7 +53,7 @@ test('forced holiday theme is on, and the season follows the local date', async 
     jan15: window.__app.ny.inSeason(new Date(2027, 0, 15)),
     jan16: window.__app.ny.inSeason(new Date(2027, 0, 16)),
   }));
-  expect(flags.force).toBe(true);
+  expect(flags.force).toBe(false);
   expect(flags.on).toBe(true);
   expect(flags.cls).toBe(true);
   expect(flags).toMatchObject({ dec14: false, dec15: true, dec31: true, jan1: true, jan15: true, jan16: false });
@@ -387,7 +414,7 @@ test('holiday art is cached for offline', async ({ page }) => {
       return { ok: false, n: 0, svg: false };
     };
     try {
-      const r = await fetch('assets/ny/snowflake-1.svg?v=24');
+      const r = await fetch('assets/ny/snowflake-1.svg?v=25');
       const text = await r.text();
       if (r.ok && text.includes('viewBox')) return { ok: true, n: text.length, svg: true };
     } catch (e) {}
@@ -410,6 +437,7 @@ test('an iPhone flick sheds snow from the caps', async ({ browser, browserName }
   });
   const page = await context.newPage();
   try {
+    await atDate(page, IN_SEASON);
     await boot(page);
     await expect(page.locator('#stack .card').first()).toBeVisible();
     await page.waitForFunction(() => {
@@ -496,6 +524,7 @@ test('a fitted iPhone stack sheds snow when stretched and when compressed', asyn
   });
   const page = await context.newPage();
   try {
+    await atDate(page, IN_SEASON);
     await boot(page);
     await expect(page.locator('#stack .card').first()).toBeVisible();
     await page.waitForFunction(() => document.querySelectorAll('#stack .card').length >= 5);
@@ -595,5 +624,55 @@ test('a fitted iPhone stack sheds snow when stretched and when compressed', asyn
     expect(up.shed).toBeLessThanOrEqual(60);
   } finally {
     await context.close();
+  }
+});
+
+test('season boundaries are 15 Dec through 15 Jan', async ({ page }) => {
+  await boot(page);
+  const bounds = await page.evaluate(() => ({
+    dec14: window.__app.ny.inSeason(new Date(2026, 11, 14)),
+    dec15: window.__app.ny.inSeason(new Date(2026, 11, 15)),
+    dec31: window.__app.ny.inSeason(new Date(2026, 11, 31)),
+    jan1: window.__app.ny.inSeason(new Date(2027, 0, 1)),
+    jan15: window.__app.ny.inSeason(new Date(2027, 0, 15)),
+    jan16: window.__app.ny.inSeason(new Date(2027, 0, 16)),
+  }));
+  expect(bounds).toEqual({ dec14: false, dec15: true, dec31: true, jan1: true, jan15: true, jan16: false });
+});
+
+test('November 11 is off-season and the stack looks like the normal app', async ({ page }, info) => {
+  await atDate(page, OFF_SEASON);
+  await boot(page);
+  await expect(page.locator('#stack .card').first()).toBeVisible();
+  const look = await page.evaluate(() => {
+    const body = getComputedStyle(document.body);
+    const garland = document.querySelector('.garland');
+    const flake = document.querySelector('.header-flake');
+    return {
+      force: window.__app.ny.force,
+      on: window.__app.ny.on,
+      ny: document.documentElement.classList.contains('ny'),
+      flakes: document.querySelectorAll('#fx .flake').length,
+      bubbles: document.querySelectorAll('#fx .bubble').length,
+      caps: document.querySelectorAll('.snowcap').length,
+      garland: garland ? getComputedStyle(garland).display : 'missing',
+      headerFlake: flake ? getComputedStyle(flake).display : 'missing',
+      bgImage: body.backgroundImage,
+      bg: body.backgroundColor,
+    };
+  });
+  expect(look.force).toBe(false);
+  expect(look.on).toBe(false);
+  expect(look.ny).toBe(false);
+  expect(look.flakes).toBe(0);
+  expect(look.bubbles).toBeGreaterThan(0);
+  expect(look.caps).toBe(0);
+  expect(look.garland).toBe('none');
+  expect(look.headerFlake).toBe('none');
+  expect(look.bgImage).not.toContain('background.svg');
+  expect(look.bg).toBe('rgb(244, 241, 244)');
+  if (info.project.name === 'chromium') {
+    fs.mkdirSync(ART, { recursive: true });
+    await page.screenshot({ path: path.join(ART, 'ny-off-stack.png') });
   }
 });

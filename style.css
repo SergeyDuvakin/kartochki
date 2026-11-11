@@ -273,7 +273,7 @@ body.loading .skeleton{display:block}
 
 /* «Праздник»: Dec 15–Jan 15, or NY_FORCE. Assets live in assets/ny/. */
 .header-flake,.title-snow,.garland{display:none}
-html.ny body{background:#f4c6d6 url("assets/ny/background.svg?v=24") center/cover no-repeat}
+html.ny body{background:#f4c6d6 url("assets/ny/background.svg?v=25") center/cover no-repeat}
 html.ny h1{position:relative;white-space:nowrap}
 html.ny .header-flake{display:inline-block;width:18px;height:18px;margin-left:6px;vertical-align:-1px}
 @media (max-width:370px){
@@ -315,7 +315,7 @@ html.ny #searchBtn::after{content:"";position:absolute;inset:0;border-radius:22p
   -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);mask-composite:exclude}
 html.ny .charm{position:absolute;z-index:4;right:10px;top:26px;width:13px;height:13px;pointer-events:none;
-  background:url("assets/ny/header-snowflake.svg?v=24") center/contain no-repeat;filter:drop-shadow(0 1px 0 rgba(90,112,130,.28))}
+  background:url("assets/ny/header-snowflake.svg?v=25") center/contain no-repeat;filter:drop-shadow(0 1px 0 rgba(90,112,130,.28))}
 html.ny .charm::before{content:"";position:absolute;left:50%;top:-6px;width:5px;height:5px;margin-left:-3.5px;border:1px solid rgba(120,142,160,.55);border-radius:50%}
 #crumbs{position:fixed;inset:0;z-index:140;pointer-events:none;overflow:hidden;transform:translateZ(0)}
 html.ny .crumb{position:absolute;left:0;top:0;border-radius:50%;pointer-events:none;will-change:transform,opacity;
