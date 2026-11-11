@@ -345,19 +345,19 @@ test('moving the stack sheds a little snow and ignores tiny motion', async ({ pa
   }));
   expect(brisk.top).toBeGreaterThan(40);
   expect(brisk.shed).toBeGreaterThan(0);
-  expect(brisk.shed).toBeLessThanOrEqual(12);
-  expect(brisk.alive).toBeLessThanOrEqual(22);
+  expect(brisk.shed).toBeLessThanOrEqual(60);
+  expect(brisk.alive).toBeLessThanOrEqual(60);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => { document.querySelector('#scroller').scrollTop = 0; });
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(1500);
   const beforeSlow = await page.evaluate(() => window.__app.ny.shed);
   await pointerDrag(page, 20, 120);
   expect(await page.evaluate(() => window.__app.ny.shed)).toBe(beforeSlow);
   await pointerDrag(page, 150, 0);
   const after = await page.evaluate(() => ({ shed: window.__app.ny.shed, alive: document.querySelectorAll('.crumb').length }));
   expect(after.shed).toBeGreaterThan(beforeSlow);
-  expect(after.shed - beforeSlow).toBeLessThanOrEqual(12);
-  expect(after.alive).toBeLessThanOrEqual(22);
+  expect(after.shed - beforeSlow).toBeLessThanOrEqual(60);
+  expect(after.alive).toBeLessThanOrEqual(60);
 });
 
 test('holiday art is cached for offline', async ({ page }) => {
@@ -387,7 +387,7 @@ test('holiday art is cached for offline', async ({ page }) => {
       return { ok: false, n: 0, svg: false };
     };
     try {
-      const r = await fetch('assets/ny/snowflake-1.svg?v=23');
+      const r = await fetch('assets/ny/snowflake-1.svg?v=24');
       const text = await r.text();
       if (r.ok && text.includes('viewBox')) return { ok: true, n: text.length, svg: true };
     } catch (e) {}
@@ -479,7 +479,7 @@ test('an iPhone flick sheds snow from the caps', async ({ browser, browserName }
     expect(flick.shed, JSON.stringify(flick)).toBeGreaterThan(0);
     expect(flick.visible, JSON.stringify(flick)).toBeGreaterThan(0);
     expect(flick.clipped).toBe(false);
-    expect(flick.shed).toBeLessThanOrEqual(22);
+    expect(flick.shed).toBeLessThanOrEqual(60);
   } finally {
     await context.close();
   }
@@ -543,7 +543,11 @@ test('a fitted iPhone stack sheds snow when stretched and when compressed', asyn
       await new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
       if (dy > 0) {
         window.__stretchReady = 'down';
-        await new Promise(res => setTimeout(res, 180));
+        await new Promise(res => setTimeout(res, 1100));
+      }
+      if (dy < 0) {
+        window.__compressReady = 'up';
+        await new Promise(res => setTimeout(res, 500));
       }
       const mid = tops();
       const moved = Math.abs(mid[mid.length - 1] - before[before.length - 1]);
@@ -565,22 +569,30 @@ test('a fitted iPhone stack sheds snow when stretched and when compressed', asyn
     const downPromise = gesture(110);
     await page.waitForFunction(() => window.__stretchReady === 'down');
     fs.mkdirSync(ART, { recursive: true });
-    await page.screenshot({ path: path.join(ART, 'ny-stretch-crumbs.png') });
+    for (let i = 1; i <= 4; i++) {
+      await page.screenshot({ path: path.join(ART, 'ny-fall-' + i + '.png') });
+      if (i === 2) await page.screenshot({ path: path.join(ART, 'ny-stretch-crumbs.png') });
+      await page.waitForTimeout(160);
+    }
     const down = await downPromise;
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(700);
     await page.evaluate(() => {
       const sc = document.querySelector('#scroller');
       sc.scrollTop = sc.scrollHeight - sc.clientHeight;
     });
-    const up = await gesture(-110);
+    const upPromise = gesture(-110);
+    await page.waitForFunction(() => window.__compressReady === 'up');
+    await page.waitForTimeout(180);
+    await page.screenshot({ path: path.join(ART, 'ny-compress-crumbs.png') });
+    const up = await upPromise;
     expect(down.moved, JSON.stringify(down)).toBeGreaterThan(8);
-    expect(down.shed, JSON.stringify(down)).toBeGreaterThan(0);
-    expect(down.seen, JSON.stringify(down)).toBeGreaterThan(0);
+    expect(down.shed, JSON.stringify(down)).toBeGreaterThan(12);
+    expect(down.seen, JSON.stringify(down)).toBeGreaterThan(8);
     expect(up.moved, JSON.stringify(up)).toBeGreaterThan(8);
-    expect(up.shed, JSON.stringify(up)).toBeGreaterThan(0);
-    expect(up.seen, JSON.stringify(up)).toBeGreaterThan(0);
-    expect(down.shed).toBeLessThanOrEqual(22);
-    expect(up.shed).toBeLessThanOrEqual(22);
+    expect(up.shed, JSON.stringify(up)).toBeGreaterThan(8);
+    expect(up.seen, JSON.stringify(up)).toBeGreaterThan(6);
+    expect(down.shed).toBeLessThanOrEqual(60);
+    expect(up.shed).toBeLessThanOrEqual(60);
   } finally {
     await context.close();
   }

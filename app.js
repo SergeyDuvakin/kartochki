@@ -1,5 +1,5 @@
 'use strict';
-const APP_V = 23;
+const APP_V = 24;
 // Review build: «Праздник» stays on. Set NY_FORCE to false to follow the device date only (15 Dec–15 Jan, inclusive).
 const NY_FORCE = true;
 function nyInSeason(date){ const m=date.getMonth(), d=date.getDate(); return (m===11 && d>=15) || (m===0 && d<=15); }
@@ -109,16 +109,16 @@ function twinkles(id){ let h=hash(id), o='';
   if(NY){ const kind=['sparkle-white','sparkle-gold'];
     for(let i=0;i<2;i++){ h=Math.imul(h^(h>>>15),2246822507)>>>0;
       const x=24+h%52, y=46+(h>>>8)%36, s=8+(h>>>16)%4, d=8+(h>>>20)%3, dl=1+(h>>>24)%10;
-      o+=`<img class="tw ny-spark" alt="" draggable="false" src="assets/ny/${kind[i]}.svg?v=23" style="left:${x}%;top:${y}%;--s:${s}px;--d:${d}s;--dl:${dl}s">`; }
+      o+=`<img class="tw ny-spark" alt="" draggable="false" src="assets/ny/${kind[i]}.svg?v=24" style="left:${x}%;top:${y}%;--s:${s}px;--d:${d}s;--dl:${dl}s">`; }
     return o; }
   for(let i=0;i<3;i++){ h=Math.imul(h^(h>>>15),2246822507)>>>0;
   const x=8+h%84, y=12+(h>>>8)%70, s=5+(h>>>16)%5, d=4+(h>>>20)%4, dl=(h>>>24)%50/10;
   o+=`<i class="tw" style="left:${x}%;top:${y}%;--s:${s}px;--d:${d}s;--dl:${dl}s"></i>`; } return o; }
 function snowCap(id){ if(!NY) return '';
   const k='abcd'[hash(id||'x')%4];
-  return `<img class="snowcap" data-cap="${k}" alt="" draggable="false" src="assets/ny/snow-cap-${k}.svg?v=23">`; }
+  return `<img class="snowcap" data-cap="${k}" alt="" draggable="false" src="assets/ny/snow-cap-${k}.svg?v=24">`; }
 function syncCap(el, tall){ const img=el.querySelector('.snowcap'); if(!img) return; const k=img.dataset.cap; if(!k) return;
-  const want=`assets/ny/snow-cap-${k}${tall?'-tall':''}.svg?v=23`; if(img.getAttribute('src')!==want) img.setAttribute('src', want); }
+  const want=`assets/ny/snow-cap-${k}${tall?'-tall':''}.svg?v=24`; if(img.getAttribute('src')!==want) img.setAttribute('src', want); }
 function initial(name){ const s=String(name||'').trim(); return s?[...s][0].toUpperCase():'•'; }
 function faceHTML(v, has){
   const name=esc(v.name||'');
@@ -839,7 +839,7 @@ const FLAKES=['snowflake-1','snowflake-2','snowflake-3','snowflake-4','flake-dot
 function snowFall(FX,N){
   const bs=[];
   for(let i=0;i<N;i++){ const e=document.createElement('img'); e.className='flake'; e.alt=''; e.draggable=false;
-    e.src='assets/ny/'+FLAKES[i%FLAKES.length]+'.svg?v=23';
+    e.src='assets/ny/'+FLAKES[i%FLAKES.length]+'.svg?v=24';
     const s=11+(i*5)%14; e.style.width=e.style.height=s+'px'; FX.appendChild(e);
     bs.push({e,s,x:((i*97)%100)/100*(Math.max(FX.clientWidth,innerWidth)||360), y:((i*53)%120)/100*((FX.clientHeight||innerHeight)||700), v:7+(i%4)*2.2, ph:i, amp:8+(i%3)*4, sw:3200+i*180}); }
   const W=()=>FX.clientWidth||innerWidth, H=()=>FX.clientHeight||innerHeight;
@@ -859,9 +859,10 @@ else { bubbles($('#fx'),10,false);
 
 /* Snow that leaves the caps: open-card handful, and a little more when the stack actually moves.
    Caps are never edited. Nothing here listens to the device sensors. */
-const CRUMB_MAX = 22;
+const CRUMB_MAX = 60;
 const nyLive = [];
-let crumbRAF = 0, motionAt = 0;
+const nyFlurry = new WeakMap();
+let crumbRAF = 0;
 function nyStill(){ return !NY || RM || matchMedia('(prefers-reduced-motion: reduce)').matches || document.hidden; }
 function nyCrumble(card, opt){
   if(nyStill()) return 0;
@@ -872,21 +873,22 @@ function nyCrumble(card, opt){
   n = Math.min(n, CRUMB_MAX - nyLive.length);
   if(n<=0) return 0;
   const host = $('#crumbs'); if(!host) return 0;
-  const r = (open ? card : cap).getBoundingClientRect();
+  const r = cap.getBoundingClientRect();
   if(r.width<8 || r.bottom<0 || r.top>innerHeight) return 0;
   const panel = document.querySelector('#viewer:not(.hidden) .panel');
   const pb = panel ? panel.getBoundingClientRect() : null;
   let made = 0;
   for(let i=0;i<n;i++){
-    const x = r.left + r.width*(open ? 0.2+Math.random()*0.6 : 0.15+Math.random()*0.7);
-    const y = (open ? r.top - 1 : r.top + r.height*0.62) + Math.random()*3;
+    const along = open ? 0.18+Math.random()*0.64 : (i+0.15+Math.random()*0.7)/(n+0.4);
+    const x = r.left + r.width*Math.min(0.94, Math.max(0.06, along));
+    const y = r.top + r.height*(open ? 0.5+Math.random()*0.12 : 0.42+Math.random()*0.16);
     if(pb && y>pb.top-8 && x>pb.left && x<pb.right) continue;
     const e = document.createElement('i');
-    e.className = 'crumb'+(i%3===0?' bit':'');
-    const s = open ? 3.4+Math.random()*3.2 : 4.6+Math.random()*2.2;
+    e.className = 'crumb';
+    const s = open ? 2.6+Math.random()*1.4 : 2.5+Math.random()*1.5;
     e.style.width = e.style.height = s.toFixed(1)+'px';
     host.appendChild(e);
-    nyLive.push({e,x,y,s,open,y0:y,base:open?0.55+Math.random()*0.4:1,vx:(Math.random()-.5)*(open?6:14),vy:(open?8:22)+Math.random()*(open?10:16),t:0,dur:open?0.48+Math.random()*0.16:0.64+Math.random()*0.16,rot:(Math.random()-.5)*16});
+    nyLive.push({e,x,y,s,open,y0:y,base:1,vx:(Math.random()-.5)*(open?8:16),vy:(open?10:7)+Math.random()*(open?12:11),t:0,dur:open?0.5+Math.random()*0.15:0.8+Math.random()*0.4,rot:(Math.random()-.5)*20});
     made++;
   }
   if(!made) return 0;
@@ -895,21 +897,28 @@ function nyCrumble(card, opt){
   nyCrumbsRun();
   return made;
 }
-function nyMotion(speed, card, floor){
-  if(nyStill() || speed<(floor||360)) return;
+function nyFlurryOn(card, speed){
+  if(nyStill() || !card || speed<90) return 0;
   const now = performance.now();
-  if(now-motionAt<80) return;
-  motionAt = now;
-  const n = speed>1200?3:speed>700?2:1;
-  if(card){ nyCrumble(card, n); return; }
-  const cards = document.querySelectorAll('#stack .card');
-  let spawned = 0;
-  for(const el of cards){
-    if(spawned>=2) break;
+  let st = nyFlurry.get(card);
+  if(!st || now-st.seen>500) st = {n:0, at:0, fast:false};
+  if(speed>640) st.fast = true;
+  const limit = st.fast ? 14 : 8;
+  if(st.n>=limit || (st.at && now-st.at<90)){ st.seen = now; nyFlurry.set(card, st); return 0; }
+  const add = Math.min(st.fast ? 3 : 2, limit-st.n);
+  st.n += add; st.at = now; st.seen = now;
+  nyFlurry.set(card, st);
+  return nyCrumble(card, add);
+}
+function nyMotion(speed, card, floor){
+  const min = floor==null ? 110 : floor;
+  if(nyStill() || speed<min) return;
+  if(card){ nyFlurryOn(card, speed); return; }
+  document.querySelectorAll('#stack .card').forEach(el=>{
     const r = el.getBoundingClientRect();
-    if(r.bottom<64 || r.top>innerHeight-8) continue;
-    nyCrumble(el, n); spawned++;
-  }
+    if(r.bottom<48 || r.top>innerHeight-4) return;
+    nyFlurryOn(el, speed);
+  });
 }
 function nyCrumbsRun(){
   if(crumbRAF || !nyLive.length) return;
@@ -924,12 +933,10 @@ function nyCrumbsRun(){
       c.t += dt;
       const k = c.t/c.dur;
       if(k>=1){ c.e.remove(); nyLive.splice(i,1); continue; }
-      c.vy += (c.open?18:80)*dt;
+      c.vy += (c.open?16:18)*dt;
       c.x += c.vx*dt; c.y += c.vy*dt;
-      const drop = c.y-c.y0;
-      const far = drop > (c.open?18:34);
-      if(far || (pb && c.y+c.s>pb.top && c.x>pb.left && c.x<pb.right)){ c.e.remove(); nyLive.splice(i,1); continue; }
-      const fade = (c.base||1) * (c.open ? 1-k : (k<0.55 ? 1 : 1-(k-0.55)/0.45));
+      if(pb && c.y+c.s>pb.top && c.x>pb.left && c.x<pb.right){ c.e.remove(); nyLive.splice(i,1); continue; }
+      const fade = (c.base||1) * (k<0.38 ? 1 : Math.max(0, 1-(k-0.38)/0.62));
       c.e.style.opacity = Math.max(0, fade).toFixed(3);
       c.e.style.transform = `translate3d(${c.x.toFixed(1)}px,${c.y.toFixed(1)}px,0) rotate(${(c.rot+k*20).toFixed(1)}deg) scale(${(1-k*0.55).toFixed(3)})`;
     }
@@ -1014,14 +1021,12 @@ document.addEventListener('visibilitychange',()=>{
   const tops=new WeakMap();
   let followRAF=0, followUntil=0;
   const sampleCards=now=>{
-    let best=0, el=null;
     document.querySelectorAll('#stack .card').forEach(card=>{
       const top=card.getBoundingClientRect().top;
       const prev=tops.get(card);
-      if(prev){ const v=Math.abs(top-prev.top)/Math.max(now-prev.t,16)*1000; if(v>best){ best=v; el=card; } }
+      if(prev){ const v=Math.abs(top-prev.top)/Math.max(now-prev.t,16)*1000; if(v>=90) nyMotion(v, card, 90); }
       tops.set(card,{top,t:now});
     });
-    if(el) nyMotion(best, el, 180);
   };
   const followLoop=now=>{ sampleCards(now); followRAF=now<followUntil?requestAnimationFrame(followLoop):0; };
   const armFollow=ms=>{ followUntil=performance.now()+ms; if(!followRAF) followRAF=requestAnimationFrame(followLoop); };
