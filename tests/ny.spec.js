@@ -32,7 +32,7 @@ test('forced holiday theme is on, and the season follows the local date', async 
   expect(flags).toMatchObject({ dec14: false, dec15: true, dec31: true, jan1: true, jan15: true, jan16: false });
 
   await expect(page.locator('#fx .bubble')).toHaveCount(0);
-  await expect(page.locator('#fx .flake')).toHaveCount(11);
+  await expect(page.locator('#fx .flake')).toHaveCount(15);
   await expect(page.locator('.garland')).toBeVisible();
   await expect(page.locator('.header-flake')).toBeVisible();
   await expect(page.locator('#stack .snowcap').first()).toBeVisible();
@@ -97,6 +97,7 @@ test('forced holiday theme is on, and the season follows the local date', async 
   expect(taps.search).toBe(true);
 
   if (info.project.name === 'chromium') {
+    await page.waitForTimeout(900);
     await shot(page, 'ny-stack');
     const head = await page.locator('header.top').boundingBox();
     await page.screenshot({ path: path.join(ART, 'ny-header.png'), clip: head });
@@ -386,7 +387,7 @@ test('holiday art is cached for offline', async ({ page }) => {
       return { ok: false, n: 0, svg: false };
     };
     try {
-      const r = await fetch('assets/ny/snowflake-1.svg?v=20');
+      const r = await fetch('assets/ny/snowflake-1.svg?v=21');
       const text = await r.text();
       if (r.ok && text.includes('viewBox')) return { ok: true, n: text.length, svg: true };
     } catch (e) {}

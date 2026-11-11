@@ -1,14 +1,14 @@
 // Карточки — offline cache. Bump VERSION with every release (matches version.json).
-const VERSION = 20;
+const VERSION = 21;
 const CACHE = 'kartochki-v' + VERSION;
-const SHELL = ['./', 'index.html', 'style.css?v=20', 'app.js?v=20', 'seed.js?v=20', 'version.json', 'manifest.webmanifest',
-  'icon-180.png', 'icon-192.png', 'icon-512.png', 'vendor/telegram-web-app.js?v=20', 'vendor/bwip-js-4.11.4.min.js',
-  'assets/ny/background.svg?v=20', 'assets/ny/header-snowflake.svg?v=20',
-  'assets/ny/garland-bright.svg?v=20', 'assets/ny/garland-dim.svg?v=20', 'assets/ny/garland-wire.svg?v=20',
-  'assets/ny/snowflake-1.svg?v=20', 'assets/ny/snowflake-2.svg?v=20', 'assets/ny/snowflake-3.svg?v=20', 'assets/ny/snowflake-4.svg?v=20',
-  'assets/ny/flake-dot.svg?v=20', 'assets/ny/snow-cap-a.svg?v=20', 'assets/ny/snow-cap-b.svg?v=20', 'assets/ny/snow-cap-c.svg?v=20', 'assets/ny/snow-cap-d.svg?v=20',
-  'assets/ny/snow-cap-a-tall.svg?v=20', 'assets/ny/snow-cap-b-tall.svg?v=20', 'assets/ny/snow-cap-c-tall.svg?v=20', 'assets/ny/snow-cap-d-tall.svg?v=20',
-  'assets/ny/sparkle-white.svg?v=20', 'assets/ny/sparkle-gold.svg?v=20'];
+const SHELL = ['./', 'index.html', 'style.css?v=21', 'app.js?v=21', 'seed.js?v=21', 'version.json', 'manifest.webmanifest',
+  'icon-180.png', 'icon-192.png', 'icon-512.png', 'vendor/telegram-web-app.js?v=21', 'vendor/bwip-js-4.11.4.min.js',
+  'assets/ny/background.svg?v=21', 'assets/ny/header-snowflake.svg?v=21',
+  'assets/ny/garland-bright.svg?v=21', 'assets/ny/garland-dim.svg?v=21', 'assets/ny/garland-wire.svg?v=21',
+  'assets/ny/snowflake-1.svg?v=21', 'assets/ny/snowflake-2.svg?v=21', 'assets/ny/snowflake-3.svg?v=21', 'assets/ny/snowflake-4.svg?v=21',
+  'assets/ny/flake-dot.svg?v=21', 'assets/ny/snow-cap-a.svg?v=21', 'assets/ny/snow-cap-b.svg?v=21', 'assets/ny/snow-cap-c.svg?v=21', 'assets/ny/snow-cap-d.svg?v=21',
+  'assets/ny/snow-cap-a-tall.svg?v=21', 'assets/ny/snow-cap-b-tall.svg?v=21', 'assets/ny/snow-cap-c-tall.svg?v=21', 'assets/ny/snow-cap-d-tall.svg?v=21',
+  'assets/ny/sparkle-white.svg?v=21', 'assets/ny/sparkle-gold.svg?v=21'];
 const LAZY = ['vendor/zxing-wasm-2.2.4-full.js', 'vendor/zxing_full.wasm']; // scanner: cached in background, not required to install
 
 self.addEventListener('install', e => {
