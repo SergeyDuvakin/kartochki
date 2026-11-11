@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+const { test, expect, devices } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
 const { boot, hidePill, makeJpeg } = require('./helpers');
@@ -387,7 +387,7 @@ test('holiday art is cached for offline', async ({ page }) => {
       return { ok: false, n: 0, svg: false };
     };
     try {
-      const r = await fetch('assets/ny/snowflake-1.svg?v=21');
+      const r = await fetch('assets/ny/snowflake-1.svg?v=22');
       const text = await r.text();
       if (r.ok && text.includes('viewBox')) return { ok: true, n: text.length, svg: true };
     } catch (e) {}
@@ -397,4 +397,90 @@ test('holiday art is cached for offline', async ({ page }) => {
   expect(body.n).toBeGreaterThan(200);
   expect(body.svg).toBe(true);
   await page.context().setOffline(false);
+});
+
+test('an iPhone flick sheds snow from the caps', async ({ browser, browserName }) => {
+  test.skip(browserName !== 'webkit', 'real touch scrolling is the WebKit case');
+  const context = await browser.newContext({
+    ...devices['iPhone 11'],
+    viewport: { width: 414, height: 896 },
+    screen: { width: 414, height: 896 },
+    baseURL: 'http://127.0.0.1:8765',
+    serviceWorkers: 'allow',
+  });
+  const page = await context.newPage();
+  try {
+    await boot(page);
+    await expect(page.locator('#stack .card').first()).toBeVisible();
+    await page.waitForFunction(() => {
+      const cards = [...document.querySelectorAll('#stack .card')];
+      return cards.length > 2 && cards[1].getBoundingClientRect().top - cards[0].getBoundingClientRect().top > 50;
+    });
+    await page.waitForTimeout(800);
+    fs.mkdirSync(ART, { recursive: true });
+    await page.screenshot({ path: path.join(ART, 'ny-blush-stack.png') });
+    await page.setViewportSize({ width: 414, height: 680 });
+    await page.waitForFunction(() => {
+      const cards = [...document.querySelectorAll('#stack .card')];
+      const sc = document.querySelector('#scroller');
+      return cards.length > 2 && cards[1].getBoundingClientRect().top - cards[0].getBoundingClientRect().top > 50 && sc.scrollHeight - sc.clientHeight > 80;
+    });
+    const pending = page.evaluate(async () => {
+      const sc = document.querySelector('#scroller');
+      const card = document.querySelector('#stack .card');
+      const before = window.__app.ny.shed || 0;
+      sc.scrollTop += 1;
+      await new Promise(r => setTimeout(r, 450));
+      const rct = card.getBoundingClientRect();
+      const x = rct.left + rct.width / 2;
+      let y = rct.top + 36;
+      const fire = (type, cy) => {
+        const ev = new Event(type, { bubbles: true, cancelable: true });
+        const point = { identifier: 1, target: card, clientX: x, clientY: cy, pageX: x, pageY: cy };
+        const list = type === 'touchend' ? [] : [point];
+        Object.defineProperty(ev, 'touches', { get: () => list });
+        Object.defineProperty(ev, 'targetTouches', { get: () => list });
+        Object.defineProperty(ev, 'changedTouches', { get: () => [point] });
+        card.dispatchEvent(ev);
+      };
+      fire('touchstart', y);
+      const steps = 8;
+      const dy = -220;
+      for (let i = 1; i <= steps; i++) {
+        await new Promise(r => setTimeout(r, 18));
+        fire('touchmove', y + (dy * i) / steps);
+      }
+      fire('touchend', y + dy);
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const seen = [...document.querySelectorAll('.crumb')].filter(el => {
+        const b = el.getBoundingClientRect();
+        const opacity = parseFloat(getComputedStyle(el).opacity || '1');
+        return b.width > 1 && b.height > 1 && opacity > 0.15 && b.bottom > 0 && b.top < innerHeight;
+      }).length;
+      window.__flickReady = true;
+      await new Promise(r => setTimeout(r, 420));
+      sc.scrollTop += 48;
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const host = document.querySelector('#crumbs');
+      return {
+        shed: (window.__app.ny.shed || 0) - before,
+        crumbs: document.querySelectorAll('.crumb').length,
+        visible: seen,
+        clipped: !!(host && host.closest('#scroller')),
+        top: sc.scrollTop,
+        viewport: { w: innerWidth, h: innerHeight },
+      };
+    });
+    await page.waitForFunction(() => window.__flickReady);
+    await page.screenshot({ path: path.join(ART, 'ny-flick-snow.png') });
+    const flick = await pending;
+    expect(flick.viewport).toEqual({ w: 414, h: 680 });
+    expect(flick.top).toBeGreaterThan(40);
+    expect(flick.shed, JSON.stringify(flick)).toBeGreaterThan(0);
+    expect(flick.visible, JSON.stringify(flick)).toBeGreaterThan(0);
+    expect(flick.clipped).toBe(false);
+    expect(flick.shed).toBeLessThanOrEqual(22);
+  } finally {
+    await context.close();
+  }
 });
