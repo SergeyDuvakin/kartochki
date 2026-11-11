@@ -1,10 +1,14 @@
 'use strict';
-const APP_V = 24;
-// Review build: «Праздник» stays on. Set NY_FORCE to false to follow the device date only (15 Dec–15 Jan, inclusive).
-const NY_FORCE = true;
+const APP_V = 25;
+// «Праздник» follows the device's local date, 15 Dec–15 Jan inclusive. Set NY_FORCE to true to keep it on.
+const NY_FORCE = false;
 function nyInSeason(date){ const m=date.getMonth(), d=date.getDate(); return (m===11 && d>=15) || (m===0 && d<=15); }
-const NY = NY_FORCE || nyInSeason(new Date());
+function nyOn(date){ return NY_FORCE || nyInSeason(date || new Date()); }
+const NY = nyOn();
 if(NY) document.documentElement.classList.add('ny');
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && nyOn() !== NY) location.reload();
+});
 fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{ if(j.v>APP_V){ const u=new URL(location.href); if(u.searchParams.get('v')!==String(j.v)){ u.searchParams.set('v',j.v); location.replace(u.toString()); } } }).catch(()=>{});
 const tg = window.Telegram && Telegram.WebApp;
 const inTG = !!(tg && tg.initData);
@@ -109,16 +113,16 @@ function twinkles(id){ let h=hash(id), o='';
   if(NY){ const kind=['sparkle-white','sparkle-gold'];
     for(let i=0;i<2;i++){ h=Math.imul(h^(h>>>15),2246822507)>>>0;
       const x=24+h%52, y=46+(h>>>8)%36, s=8+(h>>>16)%4, d=8+(h>>>20)%3, dl=1+(h>>>24)%10;
-      o+=`<img class="tw ny-spark" alt="" draggable="false" src="assets/ny/${kind[i]}.svg?v=24" style="left:${x}%;top:${y}%;--s:${s}px;--d:${d}s;--dl:${dl}s">`; }
+      o+=`<img class="tw ny-spark" alt="" draggable="false" src="assets/ny/${kind[i]}.svg?v=25" style="left:${x}%;top:${y}%;--s:${s}px;--d:${d}s;--dl:${dl}s">`; }
     return o; }
   for(let i=0;i<3;i++){ h=Math.imul(h^(h>>>15),2246822507)>>>0;
   const x=8+h%84, y=12+(h>>>8)%70, s=5+(h>>>16)%5, d=4+(h>>>20)%4, dl=(h>>>24)%50/10;
   o+=`<i class="tw" style="left:${x}%;top:${y}%;--s:${s}px;--d:${d}s;--dl:${dl}s"></i>`; } return o; }
 function snowCap(id){ if(!NY) return '';
   const k='abcd'[hash(id||'x')%4];
-  return `<img class="snowcap" data-cap="${k}" alt="" draggable="false" src="assets/ny/snow-cap-${k}.svg?v=24">`; }
+  return `<img class="snowcap" data-cap="${k}" alt="" draggable="false" src="assets/ny/snow-cap-${k}.svg?v=25">`; }
 function syncCap(el, tall){ const img=el.querySelector('.snowcap'); if(!img) return; const k=img.dataset.cap; if(!k) return;
-  const want=`assets/ny/snow-cap-${k}${tall?'-tall':''}.svg?v=24`; if(img.getAttribute('src')!==want) img.setAttribute('src', want); }
+  const want=`assets/ny/snow-cap-${k}${tall?'-tall':''}.svg?v=25`; if(img.getAttribute('src')!==want) img.setAttribute('src', want); }
 function initial(name){ const s=String(name||'').trim(); return s?[...s][0].toUpperCase():'•'; }
 function faceHTML(v, has){
   const name=esc(v.name||'');
@@ -839,7 +843,7 @@ const FLAKES=['snowflake-1','snowflake-2','snowflake-3','snowflake-4','flake-dot
 function snowFall(FX,N){
   const bs=[];
   for(let i=0;i<N;i++){ const e=document.createElement('img'); e.className='flake'; e.alt=''; e.draggable=false;
-    e.src='assets/ny/'+FLAKES[i%FLAKES.length]+'.svg?v=24';
+    e.src='assets/ny/'+FLAKES[i%FLAKES.length]+'.svg?v=25';
     const s=11+(i*5)%14; e.style.width=e.style.height=s+'px'; FX.appendChild(e);
     bs.push({e,s,x:((i*97)%100)/100*(Math.max(FX.clientWidth,innerWidth)||360), y:((i*53)%120)/100*((FX.clientHeight||innerHeight)||700), v:7+(i%4)*2.2, ph:i, amp:8+(i%3)*4, sw:3200+i*180}); }
   const W=()=>FX.clientWidth||innerWidth, H=()=>FX.clientHeight||innerHeight;
