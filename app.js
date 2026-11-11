@@ -1,5 +1,5 @@
 'use strict';
-const APP_V = 22;
+const APP_V = 23;
 // Review build: «Праздник» stays on. Set NY_FORCE to false to follow the device date only (15 Dec–15 Jan, inclusive).
 const NY_FORCE = true;
 function nyInSeason(date){ const m=date.getMonth(), d=date.getDate(); return (m===11 && d>=15) || (m===0 && d<=15); }
@@ -109,16 +109,16 @@ function twinkles(id){ let h=hash(id), o='';
   if(NY){ const kind=['sparkle-white','sparkle-gold'];
     for(let i=0;i<2;i++){ h=Math.imul(h^(h>>>15),2246822507)>>>0;
       const x=24+h%52, y=46+(h>>>8)%36, s=8+(h>>>16)%4, d=8+(h>>>20)%3, dl=1+(h>>>24)%10;
-      o+=`<img class="tw ny-spark" alt="" draggable="false" src="assets/ny/${kind[i]}.svg?v=22" style="left:${x}%;top:${y}%;--s:${s}px;--d:${d}s;--dl:${dl}s">`; }
+      o+=`<img class="tw ny-spark" alt="" draggable="false" src="assets/ny/${kind[i]}.svg?v=23" style="left:${x}%;top:${y}%;--s:${s}px;--d:${d}s;--dl:${dl}s">`; }
     return o; }
   for(let i=0;i<3;i++){ h=Math.imul(h^(h>>>15),2246822507)>>>0;
   const x=8+h%84, y=12+(h>>>8)%70, s=5+(h>>>16)%5, d=4+(h>>>20)%4, dl=(h>>>24)%50/10;
   o+=`<i class="tw" style="left:${x}%;top:${y}%;--s:${s}px;--d:${d}s;--dl:${dl}s"></i>`; } return o; }
 function snowCap(id){ if(!NY) return '';
   const k='abcd'[hash(id||'x')%4];
-  return `<img class="snowcap" data-cap="${k}" alt="" draggable="false" src="assets/ny/snow-cap-${k}.svg?v=22">`; }
+  return `<img class="snowcap" data-cap="${k}" alt="" draggable="false" src="assets/ny/snow-cap-${k}.svg?v=23">`; }
 function syncCap(el, tall){ const img=el.querySelector('.snowcap'); if(!img) return; const k=img.dataset.cap; if(!k) return;
-  const want=`assets/ny/snow-cap-${k}${tall?'-tall':''}.svg?v=22`; if(img.getAttribute('src')!==want) img.setAttribute('src', want); }
+  const want=`assets/ny/snow-cap-${k}${tall?'-tall':''}.svg?v=23`; if(img.getAttribute('src')!==want) img.setAttribute('src', want); }
 function initial(name){ const s=String(name||'').trim(); return s?[...s][0].toUpperCase():'•'; }
 function faceHTML(v, has){
   const name=esc(v.name||'');
@@ -179,7 +179,8 @@ function layout(){ const H=cardH(), st=$('#stack'); document.documentElement.sty
       el.style.transform = c.id===cur.id ? 'translate3d(0,0,0)' : `translate3d(0,${bottom + (i<iy?i:i-1)*10}px,0) scale(.94)`; });
     st.style.height=H+'px'; return; }
   list.forEach((c,i)=>{ const el=els.get(c.id); el.classList.remove('open'); syncCap(el, false); el.style.zIndex=i; el.style.opacity=1; if(el.classList.contains('dragging')) return;
-    el.style.transform=`translate3d(0,${i*STRIP + i*spread*0.45 + (spread>0?spread*0.25:0)}px,0)`; });
+    const squeeze = spread<0 ? spread*0.45 : 0;
+    el.style.transform=`translate3d(0,${i*STRIP + i*spread*0.45 + (spread>0?spread*0.25:0) + (i===0?squeeze*0.15:0)}px,0)`; });
   st.style.height = list.length ? ((list.length-1)*STRIP+H)+'px' : '0';
 }
 addEventListener('resize',layout); if(tg&&tg.onEvent) tg.onEvent('viewportChanged',()=>layout());
@@ -838,7 +839,7 @@ const FLAKES=['snowflake-1','snowflake-2','snowflake-3','snowflake-4','flake-dot
 function snowFall(FX,N){
   const bs=[];
   for(let i=0;i<N;i++){ const e=document.createElement('img'); e.className='flake'; e.alt=''; e.draggable=false;
-    e.src='assets/ny/'+FLAKES[i%FLAKES.length]+'.svg?v=22';
+    e.src='assets/ny/'+FLAKES[i%FLAKES.length]+'.svg?v=23';
     const s=11+(i*5)%14; e.style.width=e.style.height=s+'px'; FX.appendChild(e);
     bs.push({e,s,x:((i*97)%100)/100*(Math.max(FX.clientWidth,innerWidth)||360), y:((i*53)%120)/100*((FX.clientHeight||innerHeight)||700), v:7+(i%4)*2.2, ph:i, amp:8+(i%3)*4, sw:3200+i*180}); }
   const W=()=>FX.clientWidth||innerWidth, H=()=>FX.clientHeight||innerHeight;
@@ -882,10 +883,10 @@ function nyCrumble(card, opt){
     if(pb && y>pb.top-8 && x>pb.left && x<pb.right) continue;
     const e = document.createElement('i');
     e.className = 'crumb'+(i%3===0?' bit':'');
-    const s = open ? 2.4+Math.random()*3.2 : 2.4+Math.random()*1.6;
+    const s = open ? 3.4+Math.random()*3.2 : 4.6+Math.random()*2.2;
     e.style.width = e.style.height = s.toFixed(1)+'px';
     host.appendChild(e);
-    nyLive.push({e,x,y,s,open,y0:y,base:open?0.4+Math.random()*0.45:1,vx:(Math.random()-.5)*(open?6:14),vy:(open?8:28)+Math.random()*(open?10:22),t:0,dur:open?0.42+Math.random()*0.18:0.42+Math.random()*0.14,rot:(Math.random()-.5)*16});
+    nyLive.push({e,x,y,s,open,y0:y,base:open?0.55+Math.random()*0.4:1,vx:(Math.random()-.5)*(open?6:14),vy:(open?8:22)+Math.random()*(open?10:16),t:0,dur:open?0.48+Math.random()*0.16:0.64+Math.random()*0.16,rot:(Math.random()-.5)*16});
     made++;
   }
   if(!made) return 0;
@@ -894,8 +895,8 @@ function nyCrumble(card, opt){
   nyCrumbsRun();
   return made;
 }
-function nyMotion(speed, card){
-  if(nyStill() || speed<360) return;
+function nyMotion(speed, card, floor){
+  if(nyStill() || speed<(floor||360)) return;
   const now = performance.now();
   if(now-motionAt<80) return;
   motionAt = now;
@@ -926,7 +927,7 @@ function nyCrumbsRun(){
       c.vy += (c.open?18:80)*dt;
       c.x += c.vx*dt; c.y += c.vy*dt;
       const drop = c.y-c.y0;
-      const far = drop > (c.open?16:24);
+      const far = drop > (c.open?18:34);
       if(far || (pb && c.y+c.s>pb.top && c.x>pb.left && c.x<pb.right)){ c.e.remove(); nyLive.splice(i,1); continue; }
       const fade = (c.base||1) * (c.open ? 1-k : (k<0.55 ? 1 : 1-(k-0.55)/0.45));
       c.e.style.opacity = Math.max(0, fade).toFixed(3);
@@ -1005,10 +1006,26 @@ document.addEventListener('visibilitychange',()=>{
   else if(nyLive.length) nyCrumbsRun();
 });
 
-/* Wallet-style elastic pull: no container rubber-band, cards spread apart */
+/* Wallet-style elastic pull: no container rubber-band, cards spread apart.
+   A stack that already fits never scrolls, so snow follows the cards' own tops. */
 (()=>{ const sc=$('#scroller'), st=$('#stack'); let y0=null, mode=null, raf=0;
   const rub=d=>{ const k=360; return k*(1-1/(d/k*0.55+1)); };
   const apply=()=>{ raf=0; layout(); };
+  const tops=new WeakMap();
+  let followRAF=0, followUntil=0;
+  const sampleCards=now=>{
+    let best=0, el=null;
+    document.querySelectorAll('#stack .card').forEach(card=>{
+      const top=card.getBoundingClientRect().top;
+      const prev=tops.get(card);
+      if(prev){ const v=Math.abs(top-prev.top)/Math.max(now-prev.t,16)*1000; if(v>best){ best=v; el=card; } }
+      tops.set(card,{top,t:now});
+    });
+    if(el) nyMotion(best, el, 180);
+  };
+  const followLoop=now=>{ sampleCards(now); followRAF=now<followUntil?requestAnimationFrame(followLoop):0; };
+  const armFollow=ms=>{ followUntil=performance.now()+ms; if(!followRAF) followRAF=requestAnimationFrame(followLoop); };
+  const seedCards=()=>{ const now=performance.now(); document.querySelectorAll('#stack .card').forEach(card=>tops.set(card,{top:card.getBoundingClientRect().top,t:now})); };
   let momRAF=0;
   const watchMomentum=()=>{ if(momRAF) return; let y=sc.scrollTop, t=performance.now(), quiet=0, n=0;
     const step=now=>{ const ny=sc.scrollTop, v=Math.abs(ny-y)/Math.max(now-t,16)*1000; y=ny; t=now; n++;
@@ -1017,17 +1034,26 @@ document.addEventListener('visibilitychange',()=>{
   const finger=(y)=>{ const now=performance.now();
     if(st._nyFT) nyMotion(Math.abs(y-st._nyFY)/Math.max(now-st._nyFT,16)*1000);
     st._nyFY=y; st._nyFT=now; };
-  sc.addEventListener('touchstart',e=>{ if(cur||e.touches.length>1) return; y0=e.touches[0].clientY; mode=null; st._nyFY=y0; st._nyFT=performance.now(); },{passive:true});
+  sc.addEventListener('touchstart',e=>{ if(cur||e.touches.length>1) return; y0=e.touches[0].clientY; mode=null; st._nyFY=y0; st._nyFT=performance.now(); seedCards(); armFollow(900); },{passive:true});
   sc.addEventListener('touchmove',e=>{ if(y0==null||cur) return; const y=e.touches[0].clientY, dy=y-y0;
     const max=sc.scrollHeight-sc.clientHeight;
-    if(mode==null){ if(dy>0 && sc.scrollTop<=0) mode='pull'; else if(dy<0 && sc.scrollTop>=max-1) mode='edge'; else mode='scroll'; if(mode==='pull'){ st.classList.add('pulling'); y0=y; } }
+    if(mode==null){
+      if(dy>0 && sc.scrollTop<=0) mode='pull';
+      else if(dy<0 && sc.scrollTop>=max-1) mode='squash';
+      else mode='scroll';
+      if(mode==='pull'||mode==='squash'){ st.classList.add('pulling'); y0=y; }
+    }
+    armFollow(900);
     if(mode==='scroll') finger(y);
-    if(mode==='pull'){ e.preventDefault(); const prev=spread; spread=rub(Math.max(0,y-y0));
-      const now=performance.now(); if(st._nyT){ nyMotion(Math.abs(spread-prev)/Math.max(now-st._nyT,16)*1000); } st._nyT=now;
+    if(mode==='pull'||mode==='squash'){ e.preventDefault();
+      spread = mode==='pull' ? rub(Math.max(0,y-y0)) : -rub(Math.abs(y-y0))*0.55;
       if(!raf) raf=requestAnimationFrame(apply); }
-    else if(mode==='edge'){ e.preventDefault(); }
   },{passive:false});
-  const end=()=>{ if(mode==='pull'){ st.classList.remove('pulling'); spread=0; layout(); } else watchMomentum(); y0=null; mode=null; };
+  const end=()=>{
+    if(mode==='pull'||mode==='squash'){ st.classList.remove('pulling'); spread=0; layout(); armFollow(750); }
+    else watchMomentum();
+    y0=null; mode=null;
+  };
   sc.addEventListener('touchend',end); sc.addEventListener('touchcancel',end);
   let sy=sc.scrollTop, stt=performance.now();
   sc.addEventListener('scroll',()=>{ const now=performance.now(), ny=sc.scrollTop;

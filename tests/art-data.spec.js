@@ -183,7 +183,7 @@ test('version matches and offline buttons still work after the first load', asyn
       man: man.includes('icon-192.png?v=' + j.v),
     };
   });
-  expect(versions).toEqual({ v: 22, sw: true, html: true, app: true, man: true });
+  expect(versions).toEqual({ v: 23, sw: true, html: true, app: true, man: true });
 
   const reg = await page.evaluate(async () => {
     const ready = navigator.serviceWorker && navigator.serviceWorker.ready;
